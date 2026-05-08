@@ -1,8 +1,8 @@
 "use server";
 
-// Server Actions para CRUD de crew_members
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { exportarCrewADrive } from "@/lib/drive-sync";
 
 export type CrewInput = {
   id?: string;
@@ -35,24 +35,29 @@ export async function guardarCrew(data: CrewInput) {
     if (error) return { ok: false, error: error.message };
   }
   revalidatePath("/crew");
+  exportarCrewADrive(data.project_id).catch(console.warn);
   return { ok: true };
 }
 
 export async function eliminarCrew(id: string) {
   const supabase = await createClient();
+  const { data: crew } = await supabase.from("crew_members").select("project_id").eq("id", id).single();
   const { error } = await supabase.from("crew_members").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/crew");
+  if (crew?.project_id) exportarCrewADrive(crew.project_id).catch(console.warn);
   return { ok: true };
 }
 
 export async function alternarConfirmado(id: string, valor: boolean) {
   const supabase = await createClient();
+  const { data: crew } = await supabase.from("crew_members").select("project_id").eq("id", id).single();
   const { error } = await supabase
     .from("crew_members")
     .update({ is_confirmed: valor })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/crew");
+  if (crew?.project_id) exportarCrewADrive(crew.project_id).catch(console.warn);
   return { ok: true };
 }

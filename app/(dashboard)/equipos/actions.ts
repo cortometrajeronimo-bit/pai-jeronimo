@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { exportarEquiposADrive } from "@/lib/drive-sync";
 
 export type EquipmentInput = {
   id?: string;
@@ -27,24 +28,26 @@ export async function guardarEquipo(data: EquipmentInput) {
     if (error) return { ok: false, error: error.message };
   }
   revalidatePath("/equipos");
+  exportarEquiposADrive(data.project_id).catch(console.warn);
   return { ok: true };
 }
 
 export async function eliminarEquipo(id: string) {
   const supabase = await createClient();
+  const { data: eq } = await supabase.from("equipment").select("project_id").eq("id", id).single();
   const { error } = await supabase.from("equipment").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/equipos");
+  if (eq?.project_id) exportarEquiposADrive(eq.project_id).catch(console.warn);
   return { ok: true };
 }
 
 export async function actualizarEstadoEquipo(id: string, status: string) {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("equipment")
-    .update({ status })
-    .eq("id", id);
+  const { data: eq } = await supabase.from("equipment").select("project_id").eq("id", id).single();
+  const { error } = await supabase.from("equipment").update({ status }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/equipos");
+  if (eq?.project_id) exportarEquiposADrive(eq.project_id).catch(console.warn);
   return { ok: true };
 }

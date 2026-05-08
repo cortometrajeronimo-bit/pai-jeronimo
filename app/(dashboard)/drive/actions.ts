@@ -8,6 +8,7 @@ import {
   leerSheetComoFilas,
   driveDisponible,
 } from "@/lib/google-drive";
+import { exportarTodoADrive } from "@/lib/drive-sync";
 
 // Sincroniza el listado de archivos de la carpeta raíz contra drive_files.
 // Si Drive no está configurado, inserta los mocks (para que la UI sea probable).
@@ -112,6 +113,11 @@ export async function importarSheetACashFlow(projectId: string, driveFileId: str
   revalidatePath("/cashflow");
   revalidatePath("/drive");
   return { ok: true, importados: inserts.length };
+}
+
+// Exporta las 4 tablas críticas de Supabase al spreadsheet de backup en Drive.
+export async function exportarADrive(projectId: string) {
+  return exportarTodoADrive(projectId);
 }
 
 // Borrar referencia local (no toca el archivo real en Drive)

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { exportarGastosADrive } from "@/lib/drive-sync";
 
 export type ExpenseInput = {
   id?: string;
@@ -24,13 +25,16 @@ export async function guardarExpense(data: ExpenseInput) {
     if (error) return { ok: false, error: error.message };
   }
   revalidatePath("/presupuesto");
+  exportarGastosADrive(data.project_id).catch(console.warn);
   return { ok: true };
 }
 
 export async function eliminarExpense(id: string) {
   const supabase = await createClient();
+  const { data: exp } = await supabase.from("expenses").select("project_id").eq("id", id).single();
   const { error } = await supabase.from("expenses").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/presupuesto");
+  if (exp?.project_id) exportarGastosADrive(exp.project_id).catch(console.warn);
   return { ok: true };
 }

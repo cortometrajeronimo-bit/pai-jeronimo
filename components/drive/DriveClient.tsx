@@ -12,6 +12,8 @@ import {
   Download as ImportIcon,
   Search,
   AlertCircle,
+  Upload,
+  ShieldCheck,
 } from "lucide-react";
 import type { DriveFile } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +24,7 @@ import {
   sincronizarDrive,
   importarSheetACashFlow,
   eliminarDriveFile,
+  exportarADrive,
 } from "@/app/(dashboard)/drive/actions";
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 min — TODO: cambiar por webhook (Drive Push Notifications)
@@ -54,9 +57,12 @@ export function DriveClient({
   conectado: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [exportando, startExport] = useTransition();
   const [busqueda, setBusqueda] = useState("");
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [backupUrl, setBackupUrl] = useState<string | null>(null);
+  const [ultimoBackup, setUltimoBackup] = useState<string | null>(null);
 
   // Polling cada 5 min — best-effort. TODO: usar webhook Drive Watch para tiempo real.
   useEffect(() => {
@@ -79,6 +85,21 @@ export function DriveClient({
             ? `Sincronizados ${r.importados} archivos en modo demo`
             : `Sincronizados ${r.importados} de ${r.total} archivos`
         );
+    });
+  }
+
+  function exportar() {
+    setError(null);
+    setMensaje(null);
+    startExport(async () => {
+      const r = await exportarADrive(projectId);
+      if (!r.ok) {
+        setError(r.error ?? "Error al exportar a Drive");
+      } else {
+        setMensaje("Backup creado/actualizado en Drive correctamente");
+        if (r.sheetUrl) setBackupUrl(r.sheetUrl);
+        if (r.timestamp) setUltimoBackup(new Date(r.timestamp).toLocaleString("es-CO"));
+      }
     });
   }
 
@@ -124,6 +145,35 @@ export function DriveClient({
         </Card>
       )}
 
+      {/* Banner de backup */}
+      {conectado && (
+        <Card className="border-acento/30 bg-acento/5">
+          <CardContent className="pt-4 flex flex-wrap items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-acento flex-shrink-0" />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-acento">Backup automático activo</p>
+              <p className="text-textoSec text-xs mt-0.5">
+                Cada cambio en Crew, Presupuesto, Equipos o Cash Flow se guarda automáticamente en Drive.
+                {ultimoBackup && ` Último backup manual: ${ultimoBackup}.`}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {backupUrl && (
+                <a href={backupUrl} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm">
+                    <ExternalLink className="h-3 w-3 mr-1" /> Ver backup
+                  </Button>
+                </a>
+              )}
+              <Button onClick={exportar} disabled={exportando} size="sm">
+                <Upload className={`h-3 w-3 mr-1 ${exportando ? "animate-spin" : ""}`} />
+                {exportando ? "Exportando..." : "Exportar todo ahora"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textoSec" />
@@ -136,7 +186,7 @@ export function DriveClient({
         </div>
         <Button onClick={sincronizar} disabled={pending}>
           <RefreshCw className={`h-4 w-4 mr-1 ${pending ? "animate-spin" : ""}`} />
-          {pending ? "Sincronizando..." : "Sincronizar"}
+          {pending ? "Sincronizando..." : "Sincronizar Drive"}
         </Button>
       </div>
 
