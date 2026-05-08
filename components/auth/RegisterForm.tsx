@@ -30,10 +30,10 @@ export function RegisterForm() {
       return;
     }
     if (data.session) {
-      router.push("/proyecto");
+      router.push("/dashboard");
       router.refresh();
     } else {
-      setInfo("Revisa tu correo para confirmar la cuenta.");
+      setInfo("Revisa tu correo para confirmar la cuenta y luego inicia sesión.");
     }
   }
 
