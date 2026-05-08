@@ -15,6 +15,9 @@ import {
   obtenerOCrearBackupSheet,
   escribirTabEnSheet,
   leerTabDeSheet,
+  obtenerOCrearSubcarpeta,
+  crearSpreadsheetEnCarpeta,
+  buscarArchivoEnCarpeta,
 } from "@/lib/google-drive";
 
 // ==================================================
@@ -419,5 +422,116 @@ export async function leerGastosDesdeDrive(): Promise<GastoFallback[]> {
     }));
   } catch {
     return [];
+  }
+}
+
+// ==================================================
+// BACKUP DIARIO — crea snapshot fechado en /backups
+// ==================================================
+
+// Fecha en formato YYYY-MM-DD con zona horaria Colombia (UTC-5)
+function fechaColombia(): string {
+  const now = new Date();
+  // Ajustar a UTC-5
+  const col = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  return col.toISOString().slice(0, 10);
+}
+
+export type ResultadoBackup = {
+  ok: boolean;
+  nombre?: string;
+  url?: string;
+  filas?: { crew: number; gastos: number; equipos: number; cashflow: number };
+  error?: string;
+};
+
+export async function crearBackupDiario(projectId: string): Promise<ResultadoBackup> {
+  if (!driveDisponible()) {
+    return { ok: false, error: "Google Drive no configurado" };
+  }
+  try {
+    const supabase       = await createClient();
+    const folderId       = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID!;
+    const fecha          = fechaColombia();
+    const nombre         = `backup-${fecha}`;
+    const backupFolderId = await obtenerOCrearSubcarpeta("backups", folderId);
+
+    // Si ya existe el backup de hoy no crear otro (evita duplicados si el cron se dispara 2 veces)
+    const existente = await buscarArchivoEnCarpeta(nombre, backupFolderId);
+    if (existente) {
+      return {
+        ok: true,
+        nombre,
+        url: `https://docs.google.com/spreadsheets/d/${existente}`,
+        filas: { crew: 0, gastos: 0, equipos: 0, cashflow: 0 },
+      };
+    }
+
+    // Leer las 4 tablas de Supabase en paralelo
+    const [crewData, gastosData, equiposData, cashflowData] = await Promise.all([
+      supabase.from("crew_members").select("*").eq("project_id", projectId).eq("is_active", true).order("name"),
+      supabase.from("expenses").select("*").eq("project_id", projectId).order("date"),
+      supabase.from("equipment").select("*").eq("project_id", projectId).order("name"),
+      supabase.from("cash_flow").select("*").eq("project_id", projectId).order("date"),
+    ]);
+
+    const crew     = crewData.data     ?? [];
+    const gastos   = gastosData.data   ?? [];
+    const equipos  = equiposData.data  ?? [];
+    const cashflow = cashflowData.data ?? [];
+
+    // Crear spreadsheet fechado en /backups
+    const sheetId = await crearSpreadsheetEnCarpeta(
+      nombre,
+      ["Crew", "Presupuesto", "Equipos", "CashFlow"],
+      backupFolderId
+    );
+
+    // Escribir las 4 pestañas
+    await Promise.all([
+      escribirTabEnSheet(sheetId, "Crew", [
+        ["ID", "Nombre", "Rol", "Email", "Teléfono", "Cédula", "RH", "EPS",
+         "Contacto Emergencia", "Tel. Emergencia", "Restricciones", "Confirmado", "Tarifa Diaria", "Notas"],
+        ...crew.map((c) => [
+          c.id, c.name, c.role, c.email ?? "", c.phone ?? "", c.id_number ?? "",
+          c.blood_type ?? "", c.eps ?? "", c.emergency_contact_name ?? "",
+          c.emergency_contact_phone ?? "", c.dietary_restrictions ?? "",
+          c.is_confirmed ? "Sí" : "No", c.daily_rate ?? "", c.notes ?? "",
+        ]),
+      ]),
+      escribirTabEnSheet(sheetId, "Presupuesto", [
+        ["ID", "Concepto", "Categoría", "Monto (COP)", "Fecha", "Estado"],
+        ...gastos.map((e) => [e.id, e.concept, e.category, e.amount, e.date ?? "", e.status]),
+      ]),
+      escribirTabEnSheet(sheetId, "Equipos", [
+        ["ID", "Nombre", "Categoría", "Marca", "Modelo", "Proveedor", "Unidades", "Estado", "Notas"],
+        ...equipos.map((e) => [
+          e.id, e.name, e.category, e.brand ?? "", e.model ?? "",
+          e.provider ?? "", e.units ?? 1, e.status, e.notes ?? "",
+        ]),
+      ]),
+      escribirTabEnSheet(sheetId, "CashFlow", [
+        ["ID", "Fecha", "Concepto", "Tipo", "Monto (COP)", "Categoría", "Proyectado", "Notas"],
+        ...cashflow.map((c) => [
+          c.id, c.date, c.concept,
+          c.type === "income" ? "Ingreso" : "Egreso",
+          c.amount, c.category ?? "", c.is_projected ? "Sí" : "No", c.notes ?? "",
+        ]),
+      ]),
+    ]);
+
+    return {
+      ok: true,
+      nombre,
+      url: `https://docs.google.com/spreadsheets/d/${sheetId}`,
+      filas: {
+        crew:     crew.length,
+        gastos:   gastos.length,
+        equipos:  equipos.length,
+        cashflow: cashflow.length,
+      },
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Error en backup diario" };
   }
 }

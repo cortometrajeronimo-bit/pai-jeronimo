@@ -230,6 +230,62 @@ export async function leerTabDeSheet(
 }
 
 // ==================================================
+// Subcarpeta — encuentra o crea una carpeta dentro de otra
+// ==================================================
+export async function obtenerOCrearSubcarpeta(
+  nombre: string,
+  parentId: string
+): Promise<string> {
+  const q = encodeURIComponent(
+    `name='${nombre}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  );
+  const found = (await getApi(
+    `${DRIVE_API}/files?q=${q}&fields=files(id)&pageSize=1`
+  )) as { files: Array<{ id: string }> };
+  if (found.files.length > 0) return found.files[0].id;
+
+  const folder = (await postApi(`${DRIVE_API}/files`, {
+    name: nombre,
+    mimeType: "application/vnd.google-apps.folder",
+    parents: [parentId],
+  })) as { id: string };
+  return folder.id;
+}
+
+// Busca un archivo (cualquier tipo) por nombre exacto dentro de una carpeta.
+// Devuelve el ID si existe, null si no.
+export async function buscarArchivoEnCarpeta(
+  nombre: string,
+  parentId: string
+): Promise<string | null> {
+  const q = encodeURIComponent(
+    `name='${nombre}' and '${parentId}' in parents and trashed=false`
+  );
+  const found = (await getApi(
+    `${DRIVE_API}/files?q=${q}&fields=files(id)&pageSize=1`
+  )) as { files: Array<{ id: string }> };
+  return found.files[0]?.id ?? null;
+}
+
+// Crea un spreadsheet con las pestañas indicadas directamente en la carpeta destino.
+export async function crearSpreadsheetEnCarpeta(
+  nombre: string,
+  tabs: string[],
+  parentId: string
+): Promise<string> {
+  const sheet = (await postApi(`${SHEETS_API}/spreadsheets`, {
+    properties: { title: nombre },
+    sheets: tabs.map((t, i) => ({ properties: { title: t, sheetId: i } })),
+  })) as { spreadsheetId: string };
+
+  await patchApi(
+    `${DRIVE_API}/files/${sheet.spreadsheetId}?addParents=${parentId}&removeParents=root`,
+    {}
+  );
+  return sheet.spreadsheetId;
+}
+
+// ==================================================
 // Backup sheet — encuentra o crea "PAI-Backup-JERONIMO"
 // con 4 pestañas: Crew · Presupuesto · Equipos · CashFlow
 // ==================================================

@@ -15,6 +15,7 @@ import {
   Upload,
   ShieldCheck,
   ArrowDownToLine,
+  Archive,
 } from "lucide-react";
 import type { DriveFile } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,12 +63,14 @@ export function DriveClient({
   const [pending, startTransition] = useTransition();
   const [exportando, startExport] = useTransition();
   const [importando, startImport] = useTransition();
+  const [backupManual, startBackup] = useTransition();
   const [busqueda, setBusqueda] = useState("");
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backupUrl, setBackupUrl] = useState<string | null>(null);
   const [ultimoBackup, setUltimoBackup] = useState<string | null>(null);
   const [resultadoImport, setResultadoImport] = useState<ResultadoImportTotal | null>(null);
+  const [ultimoBackupDiario, setUltimoBackupDiario] = useState<string | null>(null);
 
   // Polling cada 5 min — best-effort. TODO: usar webhook Drive Watch para tiempo real.
   useEffect(() => {
@@ -104,6 +107,25 @@ export function DriveClient({
         setMensaje("Backup creado/actualizado en Drive correctamente");
         if (r.sheetUrl) setBackupUrl(r.sheetUrl);
         if (r.timestamp) setUltimoBackup(new Date(r.timestamp).toLocaleString("es-CO"));
+      }
+    });
+  }
+
+  function hacerBackupManual() {
+    setError(null);
+    setMensaje(null);
+    startBackup(async () => {
+      const r = await fetch("/api/drive/backup", { method: "POST" });
+      const data = await r.json();
+      if (!data.ok) {
+        setError(data.error ?? "Error al crear backup");
+      } else {
+        const filas = data.filas as { crew: number; gastos: number; equipos: number; cashflow: number };
+        setUltimoBackupDiario(data.nombre ?? "");
+        setMensaje(
+          `Backup "${data.nombre}" creado en Drive/backups — ` +
+          `${filas.crew} crew · ${filas.gastos} gastos · ${filas.equipos} equipos · ${filas.cashflow} movimientos`
+        );
       }
     });
   }
@@ -179,8 +201,9 @@ export function DriveClient({
             <div className="flex-1 text-sm">
               <p className="font-semibold text-acento">Backup automático activo</p>
               <p className="text-textoSec text-xs mt-0.5">
-                Cada cambio en Crew, Presupuesto, Equipos o Cash Flow se guarda automáticamente en Drive.
-                {ultimoBackup && ` Último backup manual: ${ultimoBackup}.`}
+                Sync automático en cada cambio · Backup diario automático a la 1am (hora Colombia).
+                {ultimoBackup && ` Última exportación: ${ultimoBackup}.`}
+                {ultimoBackupDiario && ` Último snapshot: ${ultimoBackupDiario}.`}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -195,9 +218,13 @@ export function DriveClient({
                 <Upload className={`h-3 w-3 mr-1 ${exportando ? "animate-spin" : ""}`} />
                 {exportando ? "Exportando..." : "PAI → Drive"}
               </Button>
-              <Button onClick={importarDesdeBackup} disabled={exportando || importando} size="sm">
+              <Button onClick={importarDesdeBackup} disabled={exportando || importando || backupManual} size="sm">
                 <ArrowDownToLine className={`h-3 w-3 mr-1 ${importando ? "animate-spin" : ""}`} />
                 {importando ? "Importando..." : "Drive → PAI"}
+              </Button>
+              <Button onClick={hacerBackupManual} disabled={exportando || importando || backupManual} size="sm" variant="outline">
+                <Archive className={`h-3 w-3 mr-1 ${backupManual ? "animate-spin" : ""}`} />
+                {backupManual ? "Guardando..." : "Snapshot ahora"}
               </Button>
             </div>
           </CardContent>
