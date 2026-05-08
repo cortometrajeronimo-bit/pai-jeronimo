@@ -145,6 +145,211 @@ export async function exportarTodoADrive(
 }
 
 // ==================================================
+// IMPORTAR DRIVE → PAI (sincronización activa)
+// Lee el backup sheet y hace upsert en Supabase.
+// Filas con ID existente → actualiza. Filas sin ID → inserta como nueva.
+// ==================================================
+
+type ResultadoImport = { nuevos: number; actualizados: number; errores: number };
+
+export async function importarCrewDesdeDrive(
+  projectId: string
+): Promise<ResultadoImport> {
+  const resultado: ResultadoImport = { nuevos: 0, actualizados: 0, errores: 0 };
+  if (!driveDisponible()) return resultado;
+
+  const supabase = await createClient();
+  const sheetId  = await obtenerOCrearBackupSheet();
+  const filas    = await leerTabDeSheet(sheetId, "Crew");
+  // Columnas: ID(0) Nombre(1) Rol(2) Email(3) Tel(4) Cédula(5) RH(6) EPS(7)
+  //           ContactoEmerg(8) TelEmerg(9) Restricciones(10) Confirmado(11)
+  //           TarifaDiaria(12) Notas(13)
+  const datos = filas.slice(1).filter((f) => f[1]?.trim() && f[2]?.trim());
+
+  for (const f of datos) {
+    const id    = f[0]?.trim();
+    const fila  = {
+      project_id:              projectId,
+      name:                    f[1]?.trim() ?? "",
+      role:                    f[2]?.trim() ?? "",
+      email:                   f[3]?.trim() || null,
+      phone:                   f[4]?.trim() || null,
+      id_number:               f[5]?.trim() || null,
+      blood_type:              f[6]?.trim() || null,
+      eps:                     f[7]?.trim() || null,
+      emergency_contact_name:  f[8]?.trim() || null,
+      emergency_contact_phone: f[9]?.trim() || null,
+      dietary_restrictions:    f[10]?.trim() || null,
+      is_confirmed:            f[11] === "Sí",
+      daily_rate:              parseFloat(f[12] ?? "") || null,
+      notes:                   f[13]?.trim() || null,
+      is_active:               true,
+    };
+
+    if (id && id.length === 36) {
+      // UUID válido → actualizar registro existente
+      const { error } = await supabase.from("crew_members").update(fila).eq("id", id);
+      if (error) resultado.errores++;
+      else resultado.actualizados++;
+    } else {
+      // Sin ID o ID inválido → insertar como nuevo miembro
+      const { error } = await supabase.from("crew_members").insert(fila);
+      if (error) resultado.errores++;
+      else resultado.nuevos++;
+    }
+  }
+  return resultado;
+}
+
+export async function importarGastosDesdeDrive(
+  projectId: string
+): Promise<ResultadoImport> {
+  const resultado: ResultadoImport = { nuevos: 0, actualizados: 0, errores: 0 };
+  if (!driveDisponible()) return resultado;
+
+  const supabase = await createClient();
+  const sheetId  = await obtenerOCrearBackupSheet();
+  const filas    = await leerTabDeSheet(sheetId, "Presupuesto");
+  // Columnas: ID(0) Concepto(1) Categoría(2) Monto(3) Fecha(4) Estado(5)
+  const datos = filas.slice(1).filter((f) => f[1]?.trim());
+
+  for (const f of datos) {
+    const id   = f[0]?.trim();
+    const fila = {
+      project_id: projectId,
+      concept:    f[1]?.trim() ?? "",
+      category:   f[2]?.trim() || "produccion",
+      amount:     parseFloat(f[3] ?? "0") || 0,
+      date:       f[4]?.slice(0, 10) || null,
+      status:     f[5]?.trim() || "planeado",
+    };
+
+    if (id && id.length === 36) {
+      const { error } = await supabase.from("expenses").update(fila).eq("id", id);
+      if (error) resultado.errores++;
+      else resultado.actualizados++;
+    } else {
+      const { error } = await supabase.from("expenses").insert(fila);
+      if (error) resultado.errores++;
+      else resultado.nuevos++;
+    }
+  }
+  return resultado;
+}
+
+export async function importarEquiposDesdeDrive(
+  projectId: string
+): Promise<ResultadoImport> {
+  const resultado: ResultadoImport = { nuevos: 0, actualizados: 0, errores: 0 };
+  if (!driveDisponible()) return resultado;
+
+  const supabase = await createClient();
+  const sheetId  = await obtenerOCrearBackupSheet();
+  const filas    = await leerTabDeSheet(sheetId, "Equipos");
+  // Columnas: ID(0) Nombre(1) Categoría(2) Marca(3) Modelo(4) Proveedor(5) Unidades(6) Estado(7) Notas(8)
+  const datos = filas.slice(1).filter((f) => f[1]?.trim());
+
+  for (const f of datos) {
+    const id   = f[0]?.trim();
+    const fila = {
+      project_id: projectId,
+      name:       f[1]?.trim() ?? "",
+      category:   f[2]?.trim() || "otros",
+      brand:      f[3]?.trim() || null,
+      model:      f[4]?.trim() || null,
+      provider:   f[5]?.trim() || null,
+      units:      parseInt(f[6] ?? "1") || 1,
+      status:     f[7]?.trim() || "disponible",
+      notes:      f[8]?.trim() || null,
+    };
+
+    if (id && id.length === 36) {
+      const { error } = await supabase.from("equipment").update(fila).eq("id", id);
+      if (error) resultado.errores++;
+      else resultado.actualizados++;
+    } else {
+      const { error } = await supabase.from("equipment").insert(fila);
+      if (error) resultado.errores++;
+      else resultado.nuevos++;
+    }
+  }
+  return resultado;
+}
+
+export async function importarCashFlowDesdeDrive(
+  projectId: string
+): Promise<ResultadoImport> {
+  const resultado: ResultadoImport = { nuevos: 0, actualizados: 0, errores: 0 };
+  if (!driveDisponible()) return resultado;
+
+  const supabase = await createClient();
+  const sheetId  = await obtenerOCrearBackupSheet();
+  const filas    = await leerTabDeSheet(sheetId, "CashFlow");
+  // Columnas: ID(0) Fecha(1) Concepto(2) Tipo(3) Monto(4) Categoría(5) Proyectado(6) Notas(7)
+  const datos = filas.slice(1).filter((f) => f[2]?.trim());
+
+  for (const f of datos) {
+    const id      = f[0]?.trim();
+    const tipoRaw = (f[3] ?? "").toLowerCase();
+    const fila    = {
+      project_id:   projectId,
+      date:         f[1]?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      concept:      f[2]?.trim() ?? "",
+      type:         tipoRaw.includes("ingreso") ? "income" : "expense" as "income" | "expense",
+      amount:       parseFloat(f[4] ?? "0") || 0,
+      category:     f[5]?.trim() || null,
+      is_projected: f[6] === "Sí",
+      notes:        f[7]?.trim() || null,
+    };
+
+    if (id && id.length === 36) {
+      const { error } = await supabase.from("cash_flow").update(fila).eq("id", id);
+      if (error) resultado.errores++;
+      else resultado.actualizados++;
+    } else {
+      const { error } = await supabase.from("cash_flow").insert(fila);
+      if (error) resultado.errores++;
+      else resultado.nuevos++;
+    }
+  }
+  return resultado;
+}
+
+export type ResultadoImportTotal = {
+  ok: boolean;
+  error?: string;
+  crew?: ResultadoImport;
+  gastos?: ResultadoImport;
+  equipos?: ResultadoImport;
+  cashflow?: ResultadoImport;
+  sheetUrl?: string;
+};
+
+export async function importarTodoDesdeDrive(
+  projectId: string
+): Promise<ResultadoImportTotal> {
+  if (!driveDisponible()) {
+    return { ok: false, error: "Google Drive no está configurado" };
+  }
+  try {
+    const sheetId = await obtenerOCrearBackupSheet();
+    const [crew, gastos, equipos, cashflow] = await Promise.all([
+      importarCrewDesdeDrive(projectId),
+      importarGastosDesdeDrive(projectId),
+      importarEquiposDesdeDrive(projectId),
+      importarCashFlowDesdeDrive(projectId),
+    ]);
+    return {
+      ok: true,
+      crew, gastos, equipos, cashflow,
+      sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}`,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Error al importar" };
+  }
+}
+
+// ==================================================
 // LEER DRIVE → FALLBACK (cuando Supabase no responde)
 // ==================================================
 

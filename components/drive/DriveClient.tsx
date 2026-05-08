@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Upload,
   ShieldCheck,
+  ArrowDownToLine,
 } from "lucide-react";
 import type { DriveFile } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +26,9 @@ import {
   importarSheetACashFlow,
   eliminarDriveFile,
   exportarADrive,
+  importarDesdeDrive,
 } from "@/app/(dashboard)/drive/actions";
+import type { ResultadoImportTotal } from "@/lib/drive-sync";
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 min — TODO: cambiar por webhook (Drive Push Notifications)
 
@@ -58,11 +61,13 @@ export function DriveClient({
 }) {
   const [pending, startTransition] = useTransition();
   const [exportando, startExport] = useTransition();
+  const [importando, startImport] = useTransition();
   const [busqueda, setBusqueda] = useState("");
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backupUrl, setBackupUrl] = useState<string | null>(null);
   const [ultimoBackup, setUltimoBackup] = useState<string | null>(null);
+  const [resultadoImport, setResultadoImport] = useState<ResultadoImportTotal | null>(null);
 
   // Polling cada 5 min — best-effort. TODO: usar webhook Drive Watch para tiempo real.
   useEffect(() => {
@@ -99,6 +104,27 @@ export function DriveClient({
         setMensaje("Backup creado/actualizado en Drive correctamente");
         if (r.sheetUrl) setBackupUrl(r.sheetUrl);
         if (r.timestamp) setUltimoBackup(new Date(r.timestamp).toLocaleString("es-CO"));
+      }
+    });
+  }
+
+  function importarDesdeBackup() {
+    setError(null);
+    setMensaje(null);
+    setResultadoImport(null);
+    if (!confirm("¿Importar los datos del backup de Drive hacia PAI?\n\nFilas con ID existente → actualizan el registro.\nFilas sin ID → se crean como nuevos registros.")) return;
+    startImport(async () => {
+      const r = await importarDesdeDrive(projectId);
+      if (!r.ok) {
+        setError(r.error ?? "Error al importar desde Drive");
+      } else {
+        setResultadoImport(r);
+        const total =
+          (r.crew?.nuevos ?? 0) + (r.crew?.actualizados ?? 0) +
+          (r.gastos?.nuevos ?? 0) + (r.gastos?.actualizados ?? 0) +
+          (r.equipos?.nuevos ?? 0) + (r.equipos?.actualizados ?? 0) +
+          (r.cashflow?.nuevos ?? 0) + (r.cashflow?.actualizados ?? 0);
+        setMensaje(`Drive → PAI completado: ${total} registros procesados`);
       }
     });
   }
@@ -157,7 +183,7 @@ export function DriveClient({
                 {ultimoBackup && ` Último backup manual: ${ultimoBackup}.`}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {backupUrl && (
                 <a href={backupUrl} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm">
@@ -165,9 +191,13 @@ export function DriveClient({
                   </Button>
                 </a>
               )}
-              <Button onClick={exportar} disabled={exportando} size="sm">
+              <Button onClick={exportar} disabled={exportando || importando} size="sm" variant="outline">
                 <Upload className={`h-3 w-3 mr-1 ${exportando ? "animate-spin" : ""}`} />
-                {exportando ? "Exportando..." : "Exportar todo ahora"}
+                {exportando ? "Exportando..." : "PAI → Drive"}
+              </Button>
+              <Button onClick={importarDesdeBackup} disabled={exportando || importando} size="sm">
+                <ArrowDownToLine className={`h-3 w-3 mr-1 ${importando ? "animate-spin" : ""}`} />
+                {importando ? "Importando..." : "Drive → PAI"}
               </Button>
             </div>
           </CardContent>
@@ -198,6 +228,26 @@ export function DriveClient({
       {error && (
         <div className="rounded border border-error bg-error/10 px-3 py-2 text-sm text-error">
           {error}
+        </div>
+      )}
+
+      {/* Detalle de la última importación Drive → PAI */}
+      {resultadoImport?.ok && (
+        <div className="rounded border border-borde bg-superficieAlt p-3 text-xs space-y-1">
+          <p className="font-semibold text-texto mb-2">Resultado Drive → PAI</p>
+          {(["crew", "gastos", "equipos", "cashflow"] as const).map((tabla) => {
+            const r = resultadoImport[tabla];
+            if (!r) return null;
+            const labels: Record<string, string> = { crew: "Crew", gastos: "Presupuesto", equipos: "Equipos", cashflow: "Cash Flow" };
+            return (
+              <div key={tabla} className="flex items-center gap-4 text-textoSec">
+                <span className="w-24 font-medium text-texto">{labels[tabla]}</span>
+                <span className="text-exito">+{r.nuevos} nuevos</span>
+                <span className="text-acento">↻ {r.actualizados} actualizados</span>
+                {r.errores > 0 && <span className="text-error">⚠ {r.errores} errores</span>}
+              </div>
+            );
+          })}
         </div>
       )}
 
