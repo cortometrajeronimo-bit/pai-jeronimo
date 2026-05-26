@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Contract, ContractTemplate } from "@/lib/types";
 import { traducirErrorSupabase } from "@/lib/supabase-errors";
+import { enviarEmailConAdjunto } from "@/lib/email";
 
 export type ContractInput = {
   id?: string;
@@ -99,13 +100,9 @@ export async function generarDesdeTemplate(
   templateId: string,
   crewIds: string[],
   projectId: string
-): Promise<{ ok: boolean; creados: number; errores: string[] }> {
+): Promise<{ ok: boolean; creados: number; errores: string[]; advertencias: Record<string, string[]> }> {
   if (!templateId || crewIds.length === 0 || !projectId) {
-    return {
-      ok: false,
-      creados: 0,
-      errores: ["Faltan datos: plantilla, crew o proyecto."],
-    };
+    return { ok: false, creados: 0, errores: ["Faltan datos: plantilla, crew o proyecto."], advertencias: {} };
   }
 
   const supabase = await createClient();
@@ -128,22 +125,94 @@ export async function generarDesdeTemplate(
     .in("id", crewIds);
 
   if (!template || !project || !crewList) {
-    return {
-      ok: false,
-      creados: 0,
-      errores: ["No se encontraron datos necesarios"],
-    };
+    return { ok: false, creados: 0, errores: ["No se encontraron datos necesarios"], advertencias: {} };
   }
 
   const { generarContratosParaCrew } = await import("@/lib/contract-generator");
 
-  const result = await generarContratosParaCrew(
-    template,
-    crewList,
-    project,
-    guardarContrato
-  );
+  const result = await generarContratosParaCrew(template, crewList, project, guardarContrato);
 
   revalidatePath("/contracts");
   return { ok: true, ...result };
+}
+
+// Envía un contrato generado al email del crew o del proyecto
+export async function enviarContratoPorEmail(
+  contractId: string,
+  destino: "crew" | "proyecto"
+): Promise<Resp> {
+  const supabase = await createClient();
+
+  const { data: contrato } = await supabase
+    .from("contracts")
+    .select("*")
+    .eq("id", contractId)
+    .single();
+
+  if (!contrato) return { ok: false, error: "Contrato no encontrado." };
+  if (!contrato.notes) return { ok: false, error: "Este contrato no tiene contenido generado." };
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("name")
+    .eq("id", contrato.project_id)
+    .single();
+
+  const proyectoNombre = project?.name ?? "JERÓNIMO";
+
+  // Determinar el email destino
+  let emailDestino: string;
+  if (destino === "proyecto") {
+    emailDestino = process.env.GMAIL_USER ?? "";
+    if (!emailDestino) return { ok: false, error: "No hay email del proyecto configurado." };
+  } else {
+    // Intenta encontrar el crew member por nombre en el contrato (formato "Plantilla — Nombre")
+    const partes = contrato.name.split(" — ");
+    const nombreCrew = partes[partes.length - 1]?.trim();
+    const { data: crew } = await supabase
+      .from("crew_members")
+      .select("name, email")
+      .ilike("name", nombreCrew ?? "")
+      .eq("project_id", contrato.project_id)
+      .maybeSingle();
+
+    if (!crew?.email) {
+      return {
+        ok: false,
+        error: `No hay email registrado para "${nombreCrew ?? "esta persona"}". Actualiza el perfil en /equipo.`,
+      };
+    }
+    emailDestino = crew.email;
+  }
+
+  // Generar PDF en servidor
+  const { pdf } = await import("@react-pdf/renderer");
+  const { ContractPDFDoc } = await import("@/components/contracts/ContractPDF");
+  const React = await import("react");
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const element = React.default.createElement(ContractPDFDoc, {
+    contrato: contrato as Contract,
+    proyecto: proyectoNombre,
+  }) as any;
+  const blob = await (pdf as any)(element).toBlob();
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const buffer = Buffer.from(await blob.arrayBuffer());
+
+  const nombreArchivo = `${contrato.name.replace(/[^\w\s\-]/g, "").slice(0, 60)}.pdf`;
+
+  await enviarEmailConAdjunto({
+    to: emailDestino,
+    subject: `Contrato para firma — ${contrato.name} · ${proyectoNombre}`,
+    html: `
+      <p>Hola,</p>
+      <p>Adjunto encontrarás el contrato <strong>${contrato.name}</strong> generado desde la plataforma P.A.I. para el proyecto <strong>${proyectoNombre}</strong>.</p>
+      <p>Por favor revisa, firma y devuelve el documento a la producción.</p>
+      <br/>
+      <p style="font-size:11px;color:#888888;">Este correo fue enviado automáticamente por P.A.I. No constituye asesoría jurídica. Si tienes dudas sobre el contenido del contrato, consulta con un abogado.</p>
+    `,
+    attachments: [{ filename: nombreArchivo, content: buffer }],
+  });
+
+  return { ok: true };
 }

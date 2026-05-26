@@ -13,6 +13,7 @@ export default async function CashFlowPage() {
   const { data: movimientos } = await supabase
     .from("cash_flow")
     .select("*")
+    .eq("project_id", project?.id ?? "")
     .order("date", { ascending: true });
 
   const projectId = project?.id ?? "";

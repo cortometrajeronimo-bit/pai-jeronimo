@@ -148,10 +148,11 @@ export function CashFlowClient({
       variacion = previo > 0 ? ((ultimo - previo) / previo) * 100 : 0;
     }
 
-    // Alerta roja: solo si hay ingresos registrados y el saldo cae bajo el 10%
+    // Alerta roja: solo si hay ingresos registrados, se ha gastado ≥10% del presupuesto
+    // y el saldo cae bajo el 10%. Evita falsos positivos cuando la caja está casi vacía.
     const umbralAlerta = presupuesto * 0.1;
     const hayIngresos = reales.some((m) => m.type === "income");
-    const enAlerta = hayIngresos && saldoActual < umbralAlerta;
+    const enAlerta = hayIngresos && totalEgresos > presupuesto * 0.1 && saldoActual < umbralAlerta;
 
     return {
       totalEgresos,

@@ -6,16 +6,24 @@ export default async function PresupuestoPage() {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id")
+    .select("id, budget_total")
     .eq("name", "JERÓNIMO")
     .maybeSingle();
 
-  const { data: expenses } = await supabase
-    .from("expenses")
-    .select("*")
-    .order("date", { ascending: false });
-
   const projectId = project?.id ?? "";
+
+  const [{ data: expenses }, { data: movimientosCaja }] = await Promise.all([
+    supabase.from("expenses").select("*").order("date", { ascending: false }),
+    projectId
+      ? supabase
+          .from("cash_flow")
+          .select("*")
+          .eq("project_id", projectId)
+          .eq("is_projected", false)
+          .order("date", { ascending: false })
+          .limit(20)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -31,7 +39,11 @@ export default async function PresupuestoPage() {
           ⚠ No hay proyecto JERÓNIMO en la base. Corre el seed primero.
         </p>
       ) : (
-        <PresupuestoClient expenses={expenses ?? []} projectId={projectId} />
+        <PresupuestoClient
+          expenses={expenses ?? []}
+          movimientosCaja={movimientosCaja ?? []}
+          projectId={projectId}
+        />
       )}
     </div>
   );

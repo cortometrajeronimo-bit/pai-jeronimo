@@ -19,14 +19,18 @@ import {
   Pencil,
   AlertTriangle,
   TrendingUp,
+  TrendingDown,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import type { Expense } from "@/lib/types";
+import type { Expense, CashFlow } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogHeader,
@@ -38,6 +42,7 @@ import {
   guardarExpense,
   eliminarExpense,
 } from "@/app/(dashboard)/presupuesto/actions";
+import { guardarCashFlow } from "@/app/(dashboard)/cashflow/actions";
 
 const CATEGORIAS = [
   { key: "desarrollo", label: "Desarrollo", presupuesto: 318_000, color: "#d4af37" },
@@ -61,19 +66,38 @@ const VACIO = (projectId: string): Expense => ({
   created_at: "",
 });
 
+const VACIO_CASHFLOW = (projectId: string, tipo: "income" | "expense"): CashFlow => ({
+  id: "",
+  project_id: projectId,
+  date: new Date().toISOString().slice(0, 10),
+  concept: "",
+  type: tipo,
+  amount: 0,
+  category: null,
+  is_projected: false,
+  notes: null,
+  created_at: "",
+});
+
 export function PresupuestoClient({
   expenses,
+  movimientosCaja,
   projectId,
 }: {
   expenses: Expense[];
+  movimientosCaja: CashFlow[];
   projectId: string;
 }) {
   const [filtroCat, setFiltroCat] = useState("");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [editando, setEditando] = useState<Expense | null>(null);
+  const [editandoCaja, setEditandoCaja] = useState<CashFlow | null>(null);
+  const [seccionCaja, setSeccionCaja] = useState(true);
   const [pending, startTransition] = useTransition();
+  const [pendingCaja, startCajaTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [errorCaja, setErrorCaja] = useState<string | null>(null);
 
   const filtrados = useMemo(() => {
     return expenses.filter((e) => {
@@ -116,7 +140,6 @@ export function PresupuestoClient({
   const onGuardar = (e: Expense) => {
     setError(null);
     startTransition(async () => {
-      // Excluimos campos manejados por la DB
       const { id, created_at: _ca, receipt_url: _r, ...rest } = e;
       void _ca; void _r;
       const res = await guardarExpense({
@@ -126,6 +149,28 @@ export function PresupuestoClient({
       });
       if (!res.ok) setError(res.error ?? "Error guardando");
       else setEditando(null);
+    });
+  };
+
+  const onGuardarCaja = (m: CashFlow) => {
+    setErrorCaja(null);
+    if (!m.concept.trim() || m.amount <= 0) {
+      setErrorCaja("Concepto y monto son obligatorios"); return;
+    }
+    startCajaTransition(async () => {
+      const res = await guardarCashFlow({
+        id: m.id || undefined,
+        project_id: projectId,
+        date: m.date,
+        concept: m.concept,
+        type: m.type,
+        amount: Number(m.amount),
+        category: m.category,
+        is_projected: false,
+        notes: m.notes,
+      });
+      if (!res.ok) setErrorCaja(res.error ?? "Error guardando");
+      else setEditandoCaja(null);
     });
   };
 
@@ -410,10 +455,7 @@ export function PresupuestoClient({
 
       <Dialog
         open={!!editando}
-        onClose={() => {
-          setEditando(null);
-          setError(null);
-        }}
+        onClose={() => { setEditando(null); setError(null); }}
       >
         {editando && (
           <ExpenseForm
@@ -424,6 +466,172 @@ export function PresupuestoClient({
             pending={pending}
             error={error}
           />
+        )}
+      </Dialog>
+
+      {/* — Sección Movimientos de Caja — */}
+      <Card>
+        <CardHeader
+          className="cursor-pointer select-none"
+          onClick={() => setSeccionCaja((v) => !v)}
+        >
+          <CardTitle className="text-base flex items-center justify-between">
+            <span>Movimientos de caja reales</span>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">{movimientosCaja.length}</Badge>
+              {seccionCaja ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
+          </CardTitle>
+        </CardHeader>
+        {seccionCaja && (
+          <CardContent className="space-y-3">
+            <p className="text-xs text-textoSec">
+              Registra ingresos y egresos reales. Se reflejan automáticamente en /flujo-de-caja y en los charts.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => { setErrorCaja(null); setEditandoCaja(VACIO_CASHFLOW(projectId, "income")); }}
+              >
+                <TrendingUp className="h-3.5 w-3.5 mr-1" /> Nuevo ingreso
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setErrorCaja(null); setEditandoCaja(VACIO_CASHFLOW(projectId, "expense")); }}
+              >
+                <TrendingDown className="h-3.5 w-3.5 mr-1" /> Nuevo egreso
+              </Button>
+            </div>
+            {movimientosCaja.length === 0 ? (
+              <p className="text-sm text-textoSec py-4 text-center">Sin movimientos registrados.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-borde text-textoSec text-xs">
+                      <th className="text-left py-2 px-2">Fecha</th>
+                      <th className="text-left py-2 px-2">Concepto</th>
+                      <th className="text-left py-2 px-2">Tipo</th>
+                      <th className="text-right py-2 px-2">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movimientosCaja.map((m) => (
+                      <tr
+                        key={m.id}
+                        className="border-b border-borde/50 hover:bg-superficieAlt cursor-pointer"
+                        onClick={() => { setErrorCaja(null); setEditandoCaja(m); }}
+                      >
+                        <td className="py-2 px-2 text-textoSec">{m.date}</td>
+                        <td className="py-2 px-2">{m.concept}</td>
+                        <td className="py-2 px-2">
+                          <Badge
+                            variant={m.type === "income" ? "success" : "danger"}
+                            className="text-xs"
+                          >
+                            {m.type === "income" ? "Ingreso" : "Egreso"}
+                          </Badge>
+                        </td>
+                        <td className={`py-2 px-2 text-right font-semibold ${m.type === "income" ? "text-exito" : "text-error"}`}>
+                          {m.type === "income" ? "+" : "-"}{formatCOP(Number(m.amount))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Modal: nuevo/editar movimiento de caja */}
+      <Dialog open={!!editandoCaja} onClose={() => { setEditandoCaja(null); setErrorCaja(null); }}>
+        {editandoCaja && (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {editandoCaja.id ? "Editar" : "Nuevo"} {editandoCaja.type === "income" ? "ingreso" : "egreso"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Concepto *</Label>
+                <Input
+                  value={editandoCaja.concept}
+                  onChange={(e) => setEditandoCaja({ ...editandoCaja, concept: e.target.value })}
+                  placeholder="Ej: Aporte UAO, Pago alojamiento..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Fecha *</Label>
+                  <Input
+                    type="date"
+                    value={editandoCaja.date}
+                    onChange={(e) => setEditandoCaja({ ...editandoCaja, date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Tipo</Label>
+                  <Select
+                    value={editandoCaja.type}
+                    onChange={(e) => setEditandoCaja({ ...editandoCaja, type: e.target.value as "income" | "expense" })}
+                  >
+                    <option value="income">Ingreso</option>
+                    <option value="expense">Egreso</option>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Monto (COP) *</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="any"
+                  placeholder="0"
+                  value={editandoCaja.amount === 0 ? "" : editandoCaja.amount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditandoCaja({ ...editandoCaja, amount: v === "" ? 0 : Number(v) });
+                  }}
+                />
+              </div>
+              <div>
+                <Label>Categoría</Label>
+                <Select
+                  value={editandoCaja.category ?? ""}
+                  onChange={(e) => setEditandoCaja({ ...editandoCaja, category: e.target.value || null })}
+                >
+                  <option value="">— Sin categoría —</option>
+                  {CATEGORIAS.map((c) => (
+                    <option key={c.key} value={c.key}>{c.label}</option>
+                  ))}
+                  <option value="financiacion">Financiación</option>
+                  <option value="otros">Otros</option>
+                </Select>
+              </div>
+              <div>
+                <Label>Notas</Label>
+                <Textarea
+                  rows={2}
+                  value={editandoCaja.notes ?? ""}
+                  onChange={(e) => setEditandoCaja({ ...editandoCaja, notes: e.target.value || null })}
+                />
+              </div>
+              {errorCaja && <p className="text-sm text-error">{errorCaja}</p>}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setEditandoCaja(null); setErrorCaja(null); }} disabled={pendingCaja}>
+                Cancelar
+              </Button>
+              <Button onClick={() => onGuardarCaja(editandoCaja)} disabled={pendingCaja}>
+                {pendingCaja ? "Guardando…" : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </>
         )}
       </Dialog>
     </div>

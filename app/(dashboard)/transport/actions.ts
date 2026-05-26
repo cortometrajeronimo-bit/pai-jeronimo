@@ -9,6 +9,7 @@ export type TransportInput = {
   vehicle_name: string;
   driver?: string | null;
   capacity?: number | null;
+  date?: string | null;
   departure_time?: string | null;
   route?: string | null;
   crew_assigned: string[];

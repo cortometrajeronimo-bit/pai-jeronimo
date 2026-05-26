@@ -213,7 +213,7 @@ export function LogbookClient({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filtrados.map((l) => {
             const meta = CATEGORIAS.find((c) => c.key === l.category)!;
             const Icon = meta.icon;
@@ -230,18 +230,18 @@ export function LogbookClient({
                   completada ? "opacity-60" : ""
                 }`}
               >
-                <CardContent className="py-3">
-                  <div className="flex items-start gap-3">
+                <CardContent className="py-4 md:py-5">
+                  <div className="flex items-start gap-4">
                     <div className="flex flex-col items-center pt-1">
-                      <Icon className="h-4 w-4 text-acento" />
+                      <Icon className="h-5 w-5 text-acento shrink-0" />
                       <div className="w-px flex-1 bg-borde mt-2" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
                         <Badge variant={meta.color} className="text-xs">
                           {meta.label}
                         </Badge>
-                        <span className="text-xs text-textoSec">{l.date}</span>
+                        <span className="text-sm text-textoSec font-medium">{l.date}</span>
                         <span className="text-xs text-textoTerc">
                           {new Date(l.created_at).toLocaleTimeString("es-CO", {
                             hour: "2-digit",
@@ -249,12 +249,12 @@ export function LogbookClient({
                           })}
                         </span>
                         {completada && (
-                          <Badge variant="success" className="text-[10px]">
+                          <Badge variant="success" className="text-xs">
                             ✅ Completada {formatHora(l.completed_at!)}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{l.content}</p>
+                      <p className="text-base leading-relaxed whitespace-pre-wrap">{l.content}</p>
 
                       {/* Hilo de actualizaciones */}
                       <button
@@ -262,7 +262,7 @@ export function LogbookClient({
                         onClick={() =>
                           setExpandido((p) => ({ ...p, [l.id]: !p[l.id] }))
                         }
-                        className="mt-2 inline-flex items-center gap-1 text-xs text-acento hover:underline"
+                        className="mt-3 inline-flex items-center gap-1 text-sm text-acento hover:underline"
                       >
                         <ChevronDown
                           className={`h-3.5 w-3.5 transition-transform ${
@@ -441,31 +441,31 @@ function HiloActualizaciones({
   }
 
   return (
-    <div className="mt-3 rounded-md border border-borde bg-superficieAlt/40 p-2 space-y-2">
+    <div className="mt-3 rounded-md border border-borde bg-superficieAlt/40 p-3 space-y-2">
       <div
         ref={listRef}
         className="max-h-[40vh] overflow-y-auto space-y-2 pr-1"
       >
         {updates.length === 0 ? (
-          <p className="text-xs text-textoSec italic px-1 py-2">
+          <p className="text-sm text-textoSec italic px-1 py-2">
             Aún no hay actualizaciones. Añade la primera abajo.
           </p>
         ) : (
           updates.map((u) => (
             <div
               key={u.id}
-              className="rounded bg-superficie/60 px-2 py-1.5 text-xs flex items-start gap-2 group"
+              className="rounded bg-superficie/60 px-3 py-2 flex items-start gap-2 group"
             >
-              <span className="text-textoTerc shrink-0">
+              <span className="text-xs text-textoTerc shrink-0 pt-0.5">
                 {formatHora(u.created_at)}
               </span>
-              <p className="flex-1 whitespace-pre-wrap text-textoPri">{u.note}</p>
+              <p className="flex-1 whitespace-pre-wrap text-sm text-textoPri leading-relaxed">{u.note}</p>
               <button
                 onClick={() => quitar(u.id)}
                 className="opacity-0 group-hover:opacity-100 text-textoSec hover:text-error transition-opacity shrink-0"
                 title="Eliminar nota"
               >
-                <Trash2 className="h-3 w-3" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           ))
@@ -474,11 +474,11 @@ function HiloActualizaciones({
 
       <div className="flex gap-2">
         <Textarea
-          rows={2}
+          rows={3}
           value={nueva}
           onChange={(e) => setNueva(e.target.value)}
           placeholder="Añadir nota de seguimiento..."
-          className="text-xs"
+          className="text-sm"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) enviar();
           }}
@@ -492,8 +492,8 @@ function HiloActualizaciones({
           <MessageSquarePlus className="h-4 w-4" />
         </Button>
       </div>
-      {errorLocal && <p className="text-xs text-error">{errorLocal}</p>}
-      <p className="text-[10px] text-textoTerc">
+      {errorLocal && <p className="text-sm text-error">{errorLocal}</p>}
+      <p className="text-xs text-textoTerc">
         Ctrl/Cmd + Enter para enviar. La fecha se pone automática.
       </p>
     </div>

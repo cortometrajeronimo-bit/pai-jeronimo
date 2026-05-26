@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Trash2, Pencil, Bus, Clock as ClockIcon, MapPin, User } from "lucide-react";
+import { Plus, Trash2, Pencil, Bus, Clock as ClockIcon, MapPin, User, Calendar } from "lucide-react";
 import type { Transport } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ const VACIO = (projectId: string): Transport => ({
   vehicle_name: "",
   driver: null,
   capacity: 4,
+  date: new Date().toISOString().slice(0, 10),
   departure_time: "06:00",
   route: null,
   crew_assigned: [],
@@ -70,6 +71,7 @@ export function TransportClient({
         vehicle_name: editando.vehicle_name,
         driver: editando.driver,
         capacity: editando.capacity,
+        date: editando.date,
         departure_time: editando.departure_time,
         route: editando.route,
         crew_assigned: editando.crew_assigned,
@@ -102,7 +104,7 @@ export function TransportClient({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {vehicles.map((v) => {
             const ocupacion = v.crew_assigned.length;
             const cap = v.capacity ?? 0;
@@ -112,15 +114,15 @@ export function TransportClient({
                 key={v.id}
                 className={sobreocupado ? "border-error" : ""}
               >
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
                     <div className="flex items-start gap-2">
-                      <Bus className="h-5 w-5 text-acento mt-0.5" />
+                      <Bus className="h-5 w-5 text-acento mt-0.5 shrink-0" />
                       <div>
-                        <CardTitle className="text-base">{v.vehicle_name}</CardTitle>
+                        <CardTitle className="text-base leading-tight">{v.vehicle_name}</CardTitle>
                         {v.driver && (
-                          <p className="text-xs text-textoSec mt-0.5">
-                            <User className="h-3 w-3 inline mr-1" />
+                          <p className="text-sm text-textoSec mt-1 flex items-center gap-1">
+                            <User className="h-3.5 w-3.5" />
                             {v.driver}
                           </p>
                         )}
@@ -128,28 +130,35 @@ export function TransportClient({
                     </div>
                     <Badge
                       variant={sobreocupado ? "danger" : "outline"}
-                      className="text-xs"
+                      className="text-xs shrink-0"
                     >
                       {ocupacion}/{cap || "—"}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="text-sm space-y-1">
+                <CardContent className="space-y-2">
+                  {v.date && (
+                    <p className="text-sm flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-acento" />
+                      <span className="text-textoSec">Fecha:</span>{" "}
+                      <span className="font-medium">{v.date}</span>
+                    </p>
+                  )}
                   {v.departure_time && (
-                    <p className="text-xs flex items-center gap-1">
-                      <ClockIcon className="h-3 w-3 text-textoSec" />
-                      Salida: {v.departure_time}
+                    <p className="text-sm flex items-center gap-1.5">
+                      <ClockIcon className="h-3.5 w-3.5 text-textoSec" />
+                      <span className="text-textoSec">Salida:</span> {v.departure_time}
                     </p>
                   )}
                   {v.route && (
-                    <p className="text-xs flex items-center gap-1">
-                      <MapPin className="h-3 w-3 text-textoSec" />
+                    <p className="text-sm flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-textoSec" />
                       {v.route}
                     </p>
                   )}
                   {v.crew_assigned.length > 0 && (
-                    <div className="pt-2">
-                      <p className="text-xs text-textoSec mb-1">Crew asignado:</p>
+                    <div className="pt-1">
+                      <p className="text-xs text-textoSec mb-1.5">Crew asignado:</p>
                       <div className="flex flex-wrap gap-1">
                         {v.crew_assigned.map((id) => (
                           <span
@@ -163,20 +172,20 @@ export function TransportClient({
                     </div>
                   )}
                   {v.notes && (
-                    <p className="text-xs text-textoSec pt-2">{v.notes}</p>
+                    <p className="text-sm text-textoSec pt-1">{v.notes}</p>
                   )}
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-2 border-t border-borde mt-2">
                     <button
                       onClick={() => setEditando(v)}
-                      className="text-xs text-textoSec hover:text-acento"
+                      className="text-sm text-textoSec hover:text-acento flex items-center gap-1"
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Pencil className="h-3.5 w-3.5" /> Editar
                     </button>
                     <button
                       onClick={() => eliminar(v.id)}
-                      className="text-xs text-textoSec hover:text-error ml-auto"
+                      className="text-sm text-textoSec hover:text-error ml-auto flex items-center gap-1"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" /> Eliminar
                     </button>
                   </div>
                 </CardContent>
@@ -234,7 +243,17 @@ export function TransportClient({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Fecha</Label>
+                <Input
+                  type="date"
+                  value={editando.date ?? ""}
+                  onChange={(e) =>
+                    setEditando({ ...editando, date: e.target.value || null })
+                  }
+                />
+              </div>
               <div>
                 <Label>Hora salida</Label>
                 <Input

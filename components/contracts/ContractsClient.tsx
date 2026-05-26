@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Plus, Trash2, Pencil, AlertTriangle, ExternalLink, FileText, Wand2, ChevronDown, ChevronUp, Shield, FolderOpen, Link as LinkIcon } from "lucide-react";
+import React, { useMemo, useState, useTransition } from "react";
+import { Plus, Trash2, Pencil, AlertTriangle, ExternalLink, FileText, Wand2, ChevronDown, ChevronUp, Shield, FolderOpen, Link as LinkIcon, Eye, Download, Mail } from "lucide-react";
 import type { Contract, ContractTemplate, Project } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   guardarPlantilla,
   eliminarPlantilla,
   generarDesdeTemplate,
+  enviarContratoPorEmail,
 } from "@/app/(dashboard)/contracts/actions";
 import { DEPARTAMENTOS, departamentoDeRol } from "@/lib/departamentos";
 
@@ -62,7 +63,7 @@ interface Props {
   projectId: string;
 }
 
-export function ContractsClient({ contracts, templates, crew, driveFiles, projectId }: Props) {
+export function ContractsClient({ contracts, templates, crew, driveFiles, projectId, project }: Props) {
   const [filtroTipo, setFiltroTipo] = useState<string>("");
   const [filtroEstado, setFiltroEstado] = useState<string>("");
   const [editandoContrato, setEditandoContrato] = useState<Contract | null>(null);
@@ -73,7 +74,12 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
   const [crewSelIds, setCrewSelIds] = useState<Set<string>>(new Set());
   const [filtroDeptoGenerar, setFiltroDeptoGenerar] = useState<string>("");
   const [resultado, setResultado] = useState<string | null>(null);
+  const [advertencias, setAdvertencias] = useState<Record<string, string[]>>({});
+  const [previsualizando, setPrevisualizando] = useState<Contract | null>(null);
+  const [enviando, setEnviando] = useState<Contract | null>(null);
+  const [emailMsg, setEmailMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [pendingEmail, startEmailTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const filtrados = useMemo(() =>
@@ -132,7 +138,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
   function generarLote() {
     if (!templateSelId) { setError("Selecciona una plantilla"); return; }
     if (crewSelIds.size === 0) { setError("Selecciona al menos un miembro del crew"); return; }
-    setError(null);
+    setError(null); setResultado(null); setAdvertencias({});
     startTransition(async () => {
       const r = await generarDesdeTemplate(templateSelId, Array.from(crewSelIds), projectId);
       if (r.errores.length > 0) {
@@ -140,7 +146,23 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
       } else {
         setResultado(`✓ ${r.creados} contrato${r.creados !== 1 ? "s" : ""} generado${r.creados !== 1 ? "s" : ""} correctamente.`);
       }
+      if (r.advertencias && Object.keys(r.advertencias).length > 0) {
+        setAdvertencias(r.advertencias);
+      }
       setCrewSelIds(new Set());
+    });
+  }
+
+  async function descargarPDF(c: Contract) {
+    const { descargarContratoPDF } = await import("@/components/contracts/ContractPDF");
+    await descargarContratoPDF(c, project?.name ?? "JERÓNIMO");
+  }
+
+  function enviarEmail(c: Contract, destino: "crew" | "proyecto") {
+    setEmailMsg(null);
+    startEmailTransition(async () => {
+      const r = await enviarContratoPorEmail(c.id, destino);
+      setEmailMsg(r.ok ? "✓ Correo enviado correctamente." : `Error: ${r.error}`);
     });
   }
 
@@ -362,6 +384,17 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
               {resultado && (
                 <p className="text-sm text-exito bg-exito/10 border border-exito/30 rounded px-3 py-2">{resultado}</p>
               )}
+              {Object.keys(advertencias).length > 0 && (
+                <div className="bg-advertencia/10 border border-advertencia/30 rounded px-3 py-2 space-y-1">
+                  <p className="text-xs font-semibold text-advertencia">⚠ Algunos campos están vacíos en la base de datos y se dejaron en blanco en el PDF:</p>
+                  {Object.entries(advertencias).map(([nombre, campos]) => (
+                    <p key={nombre} className="text-xs text-textoSec">
+                      <span className="text-white">{nombre}</span>: {campos.join(", ")}
+                    </p>
+                  ))}
+                  <p className="text-xs text-textoSec mt-1">Actualiza el perfil de cada persona en <span className="text-acento">/equipo</span>.</p>
+                </div>
+              )}
               <div>
                 <Label>Plantilla</Label>
                 <Select value={templateSelId} onChange={(e) => setTemplateSelId(e.target.value)}>
@@ -500,7 +533,32 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                         </Badge>
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                      {c.notes && (
+                        <>
+                          <button
+                            title="Previsualizar PDF"
+                            onClick={() => setPrevisualizando(c)}
+                            className="text-textoSec hover:text-acento p-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            title="Descargar PDF"
+                            onClick={() => descargarPDF(c)}
+                            className="text-textoSec hover:text-acento p-1"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                          <button
+                            title="Enviar por email"
+                            onClick={() => { setEmailMsg(null); setEnviando(c); }}
+                            className="text-textoSec hover:text-acento p-1"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                       <button onClick={() => setEditandoContrato(c)} className="text-textoSec hover:text-acento p-1">
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -632,6 +690,67 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
         </Dialog>
       )}
 
+      {/* Modal: previsualizar PDF */}
+      {previsualizando && (
+        <Dialog open onClose={() => setPrevisualizando(null)} className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm truncate">Previsualizar: {previsualizando.name}</DialogTitle>
+          </DialogHeader>
+          <div className="w-full" style={{ height: "600px" }}>
+            {/* Import dinámico para evitar crash SSR */}
+            <PDFViewerLazy contrato={previsualizando} proyecto={project?.name ?? "JERÓNIMO"} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrevisualizando(null)}>Cerrar</Button>
+            <Button onClick={() => descargarPDF(previsualizando)}>
+              <Download className="h-4 w-4 mr-1" /> Descargar
+            </Button>
+          </DialogFooter>
+        </Dialog>
+      )}
+
+      {/* Modal: enviar por email */}
+      {enviando && (
+        <Dialog open onClose={() => { setEnviando(null); setEmailMsg(null); }}>
+          <DialogHeader>
+            <DialogTitle>Enviar por email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-textoSec truncate">{enviando.name}</p>
+            {emailMsg && (
+              <p className={`text-sm rounded px-3 py-2 ${emailMsg.startsWith("✓") ? "text-exito bg-exito/10 border border-exito/30" : "text-error bg-error/10 border border-error/30"}`}>
+                {emailMsg}
+              </p>
+            )}
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                onClick={() => enviarEmail(enviando, "proyecto")}
+                disabled={pendingEmail}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {pendingEmail ? "Enviando…" : `Enviar al correo del proyecto`}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => enviarEmail(enviando, "crew")}
+                disabled={pendingEmail}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {pendingEmail ? "Enviando…" : "Enviar al correo del crew"}
+              </Button>
+            </div>
+            <p className="text-xs text-textoSec">
+              El correo del crew se obtiene de la base de datos. Si no está registrado, el envío fallará con un aviso.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEnviando(null); setEmailMsg(null); }}>Cerrar</Button>
+          </DialogFooter>
+        </Dialog>
+      )}
+
       {/* Modal: editar plantilla */}
       {editandoTemplate && (
         <Dialog open onClose={() => { setEditandoTemplate(null); setError(null); }} className="max-w-2xl">
@@ -672,6 +791,40 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
           </DialogFooter>
         </Dialog>
       )}
+
+      {/* Aviso legal */}
+      <div className="border-t border-borde pt-4 mt-8">
+        <p className="text-xs text-textoSec leading-relaxed">
+          <span className="font-semibold text-advertencia">⚠ AVISO LEGAL:</span> Los contratos generados por P.A.I. son documentos de referencia administrativa elaborados con base en plantillas predefinidas. P.A.I. no es una firma de abogados ni presta servicios de asesoría jurídica. Estos documentos no reemplazan la revisión de un profesional del derecho. Las partes contratantes son responsables de verificar la validez y el cumplimiento del contrato conforme a la normatividad colombiana vigente (Código Civil, Código Sustantivo del Trabajo, Ley 23 de 1982 y demás leyes especiales aplicables). Los desarrolladores de P.A.I. no asumen responsabilidad por el contenido legal de los documentos generados.
+        </p>
+      </div>
     </div>
   );
+}
+
+// Componente de preview: genera blob URL y lo muestra en un iframe
+function PDFViewerLazy({ contrato, proyecto }: { contrato: Contract; proyecto: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  React.useEffect(() => {
+    let url: string;
+    import("@/components/contracts/ContractPDF").then(async (m) => {
+      const blob = await import("@react-pdf/renderer").then(async ({ pdf }) => {
+        const element = React.createElement(m.ContractPDFDoc, { contrato, proyecto });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return pdf(element as any).toBlob();
+      });
+      url = URL.createObjectURL(blob);
+      setBlobUrl(url);
+      setCargando(false);
+    });
+    return () => { if (url) URL.revokeObjectURL(url); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contrato.id]);
+
+  if (cargando) return <p className="text-textoSec text-sm p-4 text-center">Generando PDF…</p>;
+  if (!blobUrl) return <p className="text-error text-sm p-4">Error al generar el PDF.</p>;
+
+  return <iframe src={blobUrl} className="w-full h-full rounded border-0" title="Previsualización del contrato" />;
 }

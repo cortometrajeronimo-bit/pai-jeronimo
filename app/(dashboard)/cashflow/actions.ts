@@ -56,6 +56,7 @@ export async function guardarCashFlow(data: CashFlowInput): Promise<Resp> {
   }
 
   revalidatePath("/cashflow");
+  revalidatePath("/presupuesto");
   revalidatePath("/dashboard");
   revalidatePath("/proyecto");
   exportarCashFlowADrive(data.project_id).catch(console.warn);
