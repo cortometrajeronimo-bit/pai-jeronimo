@@ -13,11 +13,29 @@ export default async function CashFlowPage() {
   const projectId = project?.id ?? "";
   const presupuesto = Number(project?.budget_total ?? 10_300_500);
 
-  const { data: movimientos } = await supabase
-    .from("cash_flow")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("date", { ascending: true });
+  const [{ data: movimientos }, { data: expenses }] = await Promise.all([
+    supabase
+      .from("cash_flow")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("date", { ascending: true }),
+    supabase
+      .from("expenses")
+      .select("amount, status")
+      .eq("project_id", projectId),
+  ]);
+
+  // Presupuesto disponible combinado: ambas fuentes se reflejan aquí.
+  // - expenses ejecutado/comprometido: lo planificado y pagado en el presupuesto
+  // - cash_flow egresos reales: pagos registrados directamente en caja
+  // Nota: si el mismo gasto existe en ambas tablas se contará dos veces.
+  const ejecutadoExpenses = (expenses ?? [])
+    .filter((e) => e.status === "ejecutado" || e.status === "comprometido")
+    .reduce((a, e) => a + Number(e.amount), 0);
+  const egresosCaja = (movimientos ?? [])
+    .filter((m) => m.type === "expense" && !m.is_projected)
+    .reduce((a, m) => a + Number(m.amount), 0);
+  const presupuestoDisponible = presupuesto - ejecutadoExpenses - egresosCaja;
 
   return (
     <div className="space-y-6">
@@ -39,6 +57,7 @@ export default async function CashFlowPage() {
           movimientos={movimientos ?? []}
           projectId={projectId}
           presupuesto={presupuesto}
+          presupuestoDisponible={presupuestoDisponible}
         />
       )}
     </div>
