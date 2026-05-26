@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   PieChart,
   Pie,
@@ -88,6 +89,7 @@ export function PresupuestoClient({
   movimientosCaja: CashFlow[];
   projectId: string;
 }) {
+  const router = useRouter();
   const [filtroCat, setFiltroCat] = useState("");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
@@ -148,7 +150,10 @@ export function PresupuestoClient({
         amount: Number(rest.amount) || 0,
       });
       if (!res.ok) setError(res.error ?? "Error guardando");
-      else setEditando(null);
+      else {
+        setEditando(null);
+        router.refresh();
+      }
     });
   };
 
@@ -170,7 +175,10 @@ export function PresupuestoClient({
         notes: m.notes,
       });
       if (!res.ok) setErrorCaja(res.error ?? "Error guardando");
-      else setEditandoCaja(null);
+      else {
+        setEditandoCaja(null);
+        router.refresh();
+      }
     });
   };
 
@@ -178,6 +186,7 @@ export function PresupuestoClient({
     if (!confirm("¿Eliminar este gasto?")) return;
     startTransition(async () => {
       await eliminarExpense(id);
+      router.refresh();
     });
   };
 

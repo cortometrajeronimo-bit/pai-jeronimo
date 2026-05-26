@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   LineChart,
   Line,
@@ -97,11 +98,14 @@ export function CashFlowClient({
   movimientos,
   projectId,
   presupuesto,
+  presupuestoDisponible: presupuestoDisponibleProp,
 }: {
   movimientos: CashFlow[];
   projectId: string;
   presupuesto: number;
+  presupuestoDisponible?: number;
 }) {
+  const router = useRouter();
   const [vista, setVista] = useState<Vista>("diaria");
   const [editando, setEditando] = useState<CashFlow | null>(null);
   const [pending, startTransition] = useTransition();
@@ -113,9 +117,8 @@ export function CashFlowClient({
     [movimientos]
   );
 
-  // Saldo real acumulado
+  // Saldo real acumulado (usado en vistas diaria y mensual)
   const saldoReal = useMemo(() => calcularSaldo(reales), [reales]);
-  const saldoActual = saldoReal.length > 0 ? saldoReal[saldoReal.length - 1].saldo : 0;
 
   // Saldo proyectado: real + proyectados a futuro
   const saldoProyectado = useMemo(
@@ -126,14 +129,23 @@ export function CashFlowClient({
   // Métricas Excel-like
   const metricas = useMemo(() => {
     const egresosReales = reales.filter((m) => m.type === "expense");
+    const ingresosReales = reales.filter((m) => m.type === "income");
     const totalEgresos = egresosReales.reduce((a, b) => a + Number(b.amount), 0);
+    const totalIngresos = ingresosReales.reduce((a, b) => a + Number(b.amount), 0);
+
+    // Presupuesto disponible: se usa el valor oficial del server (desde expenses)
+    // si no se recibe, fallback a presupuesto total - egresos en caja
+    const disponible =
+      presupuestoDisponibleProp !== undefined
+        ? presupuestoDisponibleProp
+        : presupuesto - totalEgresos;
 
     // Promedio diario de gasto (días con movimiento)
     const diasUnicos = new Set(egresosReales.map((m) => m.date)).size;
     const promedioDiario = diasUnicos > 0 ? totalEgresos / diasUnicos : 0;
 
-    // Runway: días que aguantamos al ritmo actual
-    const runway = promedioDiario > 0 ? Math.floor(saldoActual / promedioDiario) : Infinity;
+    // Runway basado en presupuesto disponible (siempre positivo si hay presupuesto)
+    const runway = promedioDiario > 0 ? Math.floor(disponible / promedioDiario) : Infinity;
 
     // Variación día a día (último día vs anterior)
     const porDia = new Map<string, number>();
@@ -148,21 +160,20 @@ export function CashFlowClient({
       variacion = previo > 0 ? ((ultimo - previo) / previo) * 100 : 0;
     }
 
-    // Alerta roja: solo si hay ingresos registrados, se ha gastado ≥10% del presupuesto
-    // y el saldo cae bajo el 10%. Evita falsos positivos cuando la caja está casi vacía.
     const umbralAlerta = presupuesto * 0.1;
-    const hayIngresos = reales.some((m) => m.type === "income");
-    const enAlerta = hayIngresos && totalEgresos > presupuesto * 0.1 && saldoActual < umbralAlerta;
+    const enAlerta = disponible < umbralAlerta && totalEgresos > 0;
 
     return {
       totalEgresos,
+      totalIngresos,
+      disponible,
       promedioDiario,
       runway,
       variacion,
       enAlerta,
       umbralAlerta,
     };
-  }, [reales, saldoActual, presupuesto]);
+  }, [reales, presupuesto, presupuestoDisponibleProp]);
 
   function abrirNuevo(tipo: "income" | "expense", proyectado = false) {
     setError(null);
@@ -188,7 +199,10 @@ export function CashFlowClient({
         notes: editando.notes,
       });
       if (!res.ok) setError(res.error ?? "Error al guardar");
-      else setEditando(null);
+      else {
+        setEditando(null);
+        router.refresh();
+      }
     });
   }
 
@@ -196,6 +210,7 @@ export function CashFlowClient({
     if (!confirm("¿Eliminar este movimiento?")) return;
     startTransition(async () => {
       await eliminarCashFlow(id);
+      router.refresh();
     });
   }
 
@@ -223,32 +238,68 @@ export function CashFlowClient({
 
   return (
     <div className="space-y-6">
-      {/* Cards de métricas tipo Excel */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className={metricas.enAlerta ? "border-error" : ""}>
+      {/* Hero: Presupuesto disponible */}
+      <Card className={metricas.enAlerta ? "border-error" : "border-acento/30"}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2 text-textoSec">
+            {metricas.enAlerta && <AlertTriangle className="h-4 w-4 text-error" />}
+            Presupuesto disponible
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className={`text-3xl font-bold ${metricas.enAlerta ? "text-error" : "text-acento"}`}>
+            {formatCOP(metricas.disponible)}
+          </div>
+          <div className="mt-2 space-y-1">
+            <div className="w-full bg-superficieAlt rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-2 rounded-full transition-all ${metricas.enAlerta ? "bg-error" : "bg-acento"}`}
+                style={{ width: `${Math.min(100, Math.max(0, (metricas.disponible / presupuesto) * 100))}%` }}
+              />
+            </div>
+            <p className="text-xs text-textoSec">
+              {((metricas.disponible / presupuesto) * 100).toFixed(1)}% del presupuesto total ({formatCOP(presupuesto)})
+              {metricas.enAlerta && ` · ⚠ bajo el 10%`}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cards de egresos e ingresos */}
+      <div className="grid gap-4 grid-cols-2">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              {metricas.enAlerta && <AlertTriangle className="h-4 w-4 text-error" />}
-              Saldo actual
+              <TrendingDown className="h-4 w-4 text-error" />
+              Total egresos
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${metricas.enAlerta ? "text-error" : "text-acento"}`}>
-              {formatCOP(saldoActual)}
-            </div>
-            {metricas.enAlerta && (
-              <p className="text-xs text-error mt-1">
-                ⚠ Bajo el 10% del presupuesto ({formatCOP(metricas.umbralAlerta)})
-              </p>
-            )}
-            {!metricas.enAlerta && (
-              <p className="text-xs text-textoSec mt-1">
-                {((saldoActual / presupuesto) * 100).toFixed(1)}% del presupuesto
-              </p>
-            )}
+            <div className="text-2xl font-bold text-error">{formatCOP(metricas.totalEgresos)}</div>
+            <p className="text-xs text-textoSec mt-1">
+              {reales.filter((m) => m.type === "expense").length} movimientos reales
+            </p>
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-exito" />
+              Total ingresos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-exito">{formatCOP(metricas.totalIngresos)}</div>
+            <p className="text-xs text-textoSec mt-1">
+              {reales.filter((m) => m.type === "income").length} movimientos reales
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Cards auxiliares */}
+      <div className="grid gap-4 grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Promedio diario de gasto</CardTitle>
@@ -275,16 +326,6 @@ export function CashFlowClient({
               {isFinite(metricas.runway) ? `${metricas.runway} días` : "—"}
             </div>
             <p className="text-xs text-textoSec mt-1">al ritmo actual de gasto</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total egresos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCOP(metricas.totalEgresos)}</div>
-            <p className="text-xs text-textoSec mt-1">{reales.length} movimientos reales</p>
           </CardContent>
         </Card>
       </div>
@@ -340,6 +381,7 @@ export function CashFlowClient({
           onMaterializar={(id) =>
             startTransition(async () => {
               await materializarProyeccion(id);
+              router.refresh();
             })
           }
         />
