@@ -18,6 +18,7 @@ import {
   eliminarPlantilla,
   generarDesdeTemplate,
 } from "@/app/(dashboard)/contracts/actions";
+import { DEPARTAMENTOS, departamentoDeRol } from "@/lib/departamentos";
 
 const TIPOS: Contract["type"][] = ["locacion", "talento", "equipo", "seguro", "otro"];
 const ESTADOS: Contract["status"][] = ["por_firmar", "vigente", "vencido"];
@@ -70,6 +71,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
   const [seccionGenerar, setSeccionGenerar] = useState(false);
   const [templateSelId, setTemplateSelId] = useState<string>("");
   const [crewSelIds, setCrewSelIds] = useState<Set<string>>(new Set());
+  const [filtroDeptoGenerar, setFiltroDeptoGenerar] = useState<string>("");
   const [resultado, setResultado] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -384,33 +386,69 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                   )}
                 </Select>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Crew ({crewSelIds.size} seleccionados)</Label>
-                  <button
-                    className="text-xs text-acento hover:underline"
-                    onClick={() =>
-                      crewSelIds.size === crew.length
-                        ? setCrewSelIds(new Set())
-                        : setCrewSelIds(new Set(crew.map((c) => c.id)))
-                    }
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label className="shrink-0">Crew ({crewSelIds.size} seleccionados)</Label>
+                  <Select
+                    value={filtroDeptoGenerar}
+                    onChange={(e) => setFiltroDeptoGenerar(e.target.value)}
+                    className="flex-1 min-w-[160px] text-sm"
                   >
-                    {crewSelIds.size === crew.length ? "Desmarcar todos" : "Seleccionar todos"}
+                    <option value="">Todos los departamentos</option>
+                    {DEPARTAMENTOS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </Select>
+                  <button
+                    type="button"
+                    className="text-xs text-acento hover:underline shrink-0"
+                    onClick={() => {
+                      const visibles = crew.filter(
+                        (m) => !filtroDeptoGenerar || departamentoDeRol(m.role) === filtroDeptoGenerar
+                      );
+                      const todosSelec = visibles.every((m) => crewSelIds.has(m.id));
+                      setCrewSelIds((prev) => {
+                        const next = new Set(prev);
+                        if (todosSelec) visibles.forEach((m) => next.delete(m.id));
+                        else visibles.forEach((m) => next.add(m.id));
+                        return next;
+                      });
+                    }}
+                  >
+                    {crew
+                      .filter((m) => !filtroDeptoGenerar || departamentoDeRol(m.role) === filtroDeptoGenerar)
+                      .every((m) => crewSelIds.has(m.id))
+                      ? "Desmarcar todos"
+                      : "Seleccionar todos"}
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-52 overflow-y-auto border border-borde rounded-md p-2">
-                  {crew.map((m) => (
-                    <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer hover:text-white py-0.5">
-                      <input
-                        type="checkbox"
-                        checked={crewSelIds.has(m.id)}
-                        onChange={() => toggleCrew(m.id)}
-                        className="accent-acento"
-                      />
-                      <span>{m.name}</span>
-                      <span className="text-xs text-textoTerc truncate">{m.role}</span>
-                    </label>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto border border-borde rounded-md p-2">
+                  {crew
+                    .filter((m) => !filtroDeptoGenerar || departamentoDeRol(m.role) === filtroDeptoGenerar)
+                    .map((m) => (
+                      <label
+                        key={m.id}
+                        className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                          crewSelIds.has(m.id)
+                            ? "border-acento bg-acento/10 text-white"
+                            : "border-borde hover:border-acento/50 text-textoSec hover:text-white"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={crewSelIds.has(m.id)}
+                          onChange={() => toggleCrew(m.id)}
+                          className="accent-acento w-4 h-4 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{m.name}</p>
+                          <p className="text-xs text-textoSec truncate">{m.role}</p>
+                        </div>
+                      </label>
+                    ))}
+                  {crew.filter((m) => !filtroDeptoGenerar || departamentoDeRol(m.role) === filtroDeptoGenerar).length === 0 && (
+                    <p className="col-span-2 text-xs text-textoSec text-center py-3">Sin crew en este departamento.</p>
+                  )}
                 </div>
               </div>
               {error && <p className="text-sm text-error">{error}</p>}

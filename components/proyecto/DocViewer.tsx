@@ -68,9 +68,16 @@ export function DocViewer({ documentos }: { documentos: DocumentoProyecto[] }) {
     );
   }
 
-  const url = seleccionado
-    ? `https://drive.google.com/file/d/${seleccionado.drive_file_id}/preview`
-    : null;
+  const CATEGORIAS_SHEET: Categoria[] = ["cronograma", "guion_tecnico", "plan_rodaje"];
+
+  function buildPreviewUrl(doc: DocumentoProyecto): string {
+    if (CATEGORIAS_SHEET.includes(doc.category)) {
+      return `https://docs.google.com/spreadsheets/d/${doc.drive_file_id}/htmlview?embedded=true`;
+    }
+    return `https://drive.google.com/file/d/${doc.drive_file_id}/preview`;
+  }
+
+  const url = seleccionado ? buildPreviewUrl(seleccionado) : null;
 
   return (
     <div className="space-y-3 lg:grid lg:grid-cols-[260px_1fr] lg:gap-4 lg:space-y-0">
@@ -128,7 +135,7 @@ export function DocViewer({ documentos }: { documentos: DocumentoProyecto[] }) {
           <iframe
             key={url}
             src={url}
-            className="w-full h-[calc(100dvh-200px)] min-h-[60vh] lg:h-[70vh] lg:min-h-[480px] rounded-md border border-borde bg-superficie"
+            className="w-full h-[calc(100dvh-160px)] min-h-[65vh] lg:h-[75vh] lg:min-h-[500px] rounded-md border border-borde bg-superficie"
             allow="autoplay"
             title={seleccionado?.title ?? "Documento"}
           />

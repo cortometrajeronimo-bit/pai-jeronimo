@@ -56,7 +56,6 @@ function porcentajeFase(faseKey: string, hoy: Date): number {
 export default async function ProyectoPage() {
   const supabase = await createClient();
   const hoy = new Date();
-  const hoyIso = hoy.toISOString().slice(0, 10);
 
   const [
     { data: project },
@@ -67,7 +66,6 @@ export default async function ProyectoPage() {
     { data: expenses },
     { data: ultimoArchivo },
     { data: ultimosGastos },
-    { data: asistenciaHoy },
     { data: ultimoIncidente },
     { data: documentosRaw },
     { data: driveFiles },
@@ -92,13 +90,9 @@ export default async function ProyectoPage() {
     supabase
       .from("expenses")
       .select("concept, amount, date, category")
+      .eq("status", "ejecutado")
       .order("date", { ascending: false })
       .limit(5),
-    supabase
-      .from("attendance")
-      .select("status")
-      .eq("date", hoyIso)
-      .eq("status", "presente"),
     supabase
       .from("incidents")
       .select("date, type, description")
@@ -137,12 +131,6 @@ export default async function ProyectoPage() {
 
   const faseKey = calcularFaseActual(hoy);
   const pctFase = porcentajeFase(faseKey, hoy);
-
-  const presentesHoy = asistenciaHoy?.length ?? 0;
-  const pctAsistencia =
-    (crewCount ?? 0) > 0
-      ? Math.round((presentesHoy / (crewCount ?? 1)) * 100)
-      : 0;
 
   const documentos: DocumentoProyecto[] = (documentosRaw ?? []).map((d) => ({
     id: d.id,
@@ -419,39 +407,8 @@ export default async function ProyectoPage() {
         </Card>
       </section>
 
-      {/* Asistencia + último incidente */}
-      <section className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-acento" />
-              Asistencia hoy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-acento">
-                {pctAsistencia}%
-              </span>
-              <span className="text-sm text-textoSec">
-                {presentesHoy} / {crewCount ?? 0} crew
-              </span>
-            </div>
-            <div className="mt-3 h-2 w-full bg-superficieAlt rounded-full overflow-hidden">
-              <div
-                className="h-full bg-acento transition-all"
-                style={{ width: `${pctAsistencia}%` }}
-              />
-            </div>
-            <Link
-              href="/attendance"
-              className="text-xs text-acento hover:underline mt-3 inline-block"
-            >
-              Marcar llegadas →
-            </Link>
-          </CardContent>
-        </Card>
-
+      {/* Último incidente */}
+      <section className="grid gap-4">
         <Card
           className={
             ultimoIncidente?.type === "grave"

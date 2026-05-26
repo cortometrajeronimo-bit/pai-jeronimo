@@ -10,17 +10,31 @@ export type ProducerLogInput = {
   date: string;
   category: ProducerLog["category"];
   content: string;
+  completed_at?: string | null;
 };
 
 export async function guardarLog(data: ProducerLogInput) {
   const supabase = await createClient();
-  const { id, ...rest } = data;
+  const { id, project_id, date, category, content, completed_at } = data;
   if (id) {
-    const { error } = await supabase.from("producer_logs").update(rest).eq("id", id);
+    const { error } = await supabase
+      .from("producer_logs")
+      .update({ project_id, date, category, content, completed_at: completed_at ?? null })
+      .eq("id", id);
     if (error) return { ok: false, error: error.message };
   } else {
-    const { error } = await supabase.from("producer_logs").insert(rest);
+    const { data: inserted, error } = await supabase
+      .from("producer_logs")
+      .insert({ project_id, date, category, content })
+      .select("id")
+      .single();
     if (error) return { ok: false, error: error.message };
+    if (completed_at && inserted?.id) {
+      await supabase
+        .from("producer_logs")
+        .update({ completed_at })
+        .eq("id", inserted.id);
+    }
   }
   revalidatePath("/logbook");
   return { ok: true };

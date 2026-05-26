@@ -148,9 +148,10 @@ export function CashFlowClient({
       variacion = previo > 0 ? ((ultimo - previo) / previo) * 100 : 0;
     }
 
-    // Alerta roja: saldo < 10% del presupuesto total
+    // Alerta roja: solo si hay ingresos registrados y el saldo cae bajo el 10%
     const umbralAlerta = presupuesto * 0.1;
-    const enAlerta = saldoActual < umbralAlerta;
+    const hayIngresos = reales.some((m) => m.type === "income");
+    const enAlerta = hayIngresos && saldoActual < umbralAlerta;
 
     return {
       totalEgresos,

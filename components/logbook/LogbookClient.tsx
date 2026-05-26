@@ -15,7 +15,9 @@ import {
   RotateCcw,
   MessageSquarePlus,
   ChevronDown,
+  Bell,
 } from "lucide-react";
+import { PushOptInButton } from "@/components/notifications/PushOptInButton";
 import type { LucideIcon } from "lucide-react";
 import type { ProducerLog } from "@/lib/types";
 
@@ -83,6 +85,7 @@ export function LogbookClient({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false);
+  const [mostrarNotif, setMostrarNotif] = useState(false);
 
   const filtrados = useMemo(() => {
     return logs.filter((l) => {
@@ -117,6 +120,7 @@ export function LogbookClient({
         date: editando.date,
         category: editando.category,
         content: editando.content,
+        completed_at: editando.completed_at,
       });
       if (!r.ok) setError(r.error ?? "Error al guardar");
       else setEditando(null);
@@ -139,6 +143,29 @@ export function LogbookClient({
 
   return (
     <div className="space-y-4">
+      {/* Recordatorio diario */}
+      <div className="rounded-md border border-borde bg-superficie overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setMostrarNotif((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm text-textoSec hover:text-white transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-acento" />
+            Recordatorio diario de urgencias
+          </span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${mostrarNotif ? "rotate-180" : ""}`} />
+        </button>
+        {mostrarNotif && (
+          <div className="px-4 pb-4 border-t border-borde space-y-2">
+            <p className="text-xs text-textoSec mt-3">
+              Activa las notificaciones push para recibir un resumen a las <strong className="text-white">7:00 a.m. (hora Colombia)</strong> cuando haya urgencias abiertas sin cerrar.
+            </p>
+            <PushOptInButton />
+          </div>
+        )}
+      </div>
+
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -254,31 +281,33 @@ export function LogbookClient({
                         />
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 items-end">
+                    <div className="flex flex-col gap-1 items-end shrink-0">
                       <button
                         onClick={() => toggleCompletada(l)}
-                        className={`p-1 rounded hover:bg-superficieAlt ${
+                        className={`p-2 rounded-md hover:bg-superficieAlt transition-colors ${
                           completada ? "text-textoSec" : "text-exito"
                         }`}
-                        title={completada ? "Reabrir" : "Marcar completada"}
+                        title={completada ? "Reabrir" : "Marcar terminada"}
                       >
                         {completada ? (
-                          <RotateCcw className="h-3.5 w-3.5" />
+                          <RotateCcw className="h-4 w-4" />
                         ) : (
                           <CheckCircle2 className="h-4 w-4" />
                         )}
                       </button>
                       <button
                         onClick={() => setEditando(l)}
-                        className="text-textoSec hover:text-acento"
+                        className="p-2 rounded-md hover:bg-superficieAlt text-textoSec hover:text-acento transition-colors"
+                        title="Editar"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => eliminar(l.id)}
-                        className="text-textoSec hover:text-error"
+                        className="p-2 rounded-md hover:bg-superficieAlt text-textoSec hover:text-error transition-colors"
+                        title="Eliminar"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -336,6 +365,21 @@ export function LogbookClient({
                 </p>
               )}
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!editando.completed_at}
+                onChange={(e) =>
+                  setEditando({
+                    ...editando,
+                    completed_at: e.target.checked ? new Date().toISOString() : null,
+                  })
+                }
+                className="accent-acento w-4 h-4"
+              />
+              <CheckCircle2 className="h-4 w-4 text-exito" />
+              Marcar como terminada
+            </label>
             {error && <p className="text-sm text-error">{error}</p>}
           </div>
 
