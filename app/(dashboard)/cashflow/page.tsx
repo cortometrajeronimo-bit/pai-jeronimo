@@ -13,25 +13,11 @@ export default async function CashFlowPage() {
   const projectId = project?.id ?? "";
   const presupuesto = Number(project?.budget_total ?? 10_300_500);
 
-  const [{ data: movimientos }, { data: expenses }] = await Promise.all([
-    supabase
-      .from("cash_flow")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("date", { ascending: true }),
-    supabase
-      .from("expenses")
-      .select("amount, status")
-      .eq("project_id", projectId),
-  ]);
-
-  const ejecutadoTotal = (expenses ?? [])
-    .filter((e) => e.status === "ejecutado")
-    .reduce((a, e) => a + Number(e.amount), 0);
-  const comprometidoTotal = (expenses ?? [])
-    .filter((e) => e.status === "comprometido")
-    .reduce((a, e) => a + Number(e.amount), 0);
-  const presupuestoDisponible = presupuesto - ejecutadoTotal - comprometidoTotal;
+  const { data: movimientos } = await supabase
+    .from("cash_flow")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("date", { ascending: true });
 
   return (
     <div className="space-y-6">
@@ -53,7 +39,6 @@ export default async function CashFlowPage() {
           movimientos={movimientos ?? []}
           projectId={projectId}
           presupuesto={presupuesto}
-          presupuestoDisponible={presupuestoDisponible}
         />
       )}
     </div>
