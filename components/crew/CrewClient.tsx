@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Search, Plus, Download, Pencil, Trash2, Check, AlertCircle } from "lucide-react";
+import { Search, Plus, Download, Pencil, Trash2, Check } from "lucide-react";
 import type { CrewMember } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DEPARTAMENTOS, departamentoDeRol } from "@/lib/departamentos";
 import { toCSV, descargarCSV } from "@/lib/csv";
-import { guardarCrew, eliminarCrew, alternarConfirmado } from "@/app/(dashboard)/crew/actions";
+import { formatCOP } from "@/lib/utils";
+import { guardarCrew, eliminarCrew } from "@/app/(dashboard)/crew/actions";
 
 type Props = {
   crew: CrewMember[];
@@ -116,12 +117,6 @@ export function CrewClient({ crew, projectId }: Props) {
     });
   };
 
-  const toggleConfirmado = (m: CrewMember) => {
-    startTransition(async () => {
-      await alternarConfirmado(m.id, !m.is_confirmed);
-    });
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row gap-3 md:items-center">
@@ -180,7 +175,11 @@ export function CrewClient({ crew, projectId }: Props) {
                 onClick={() => setSeleccionado(m)}
                 className="cursor-pointer"
               >
-                <TableCell className="font-medium">{m.name}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="underline underline-offset-2 decoration-textoSec cursor-pointer hover:text-acento transition-colors">
+                    {m.name}
+                  </span>
+                </TableCell>
                 <TableCell className="text-textoSec">{m.role}</TableCell>
                 <TableCell className="text-textoSec text-xs">
                   {departamentoDeRol(m.role)}
@@ -188,13 +187,9 @@ export function CrewClient({ crew, projectId }: Props) {
                 <TableCell className="text-textoSec">{m.phone ?? "—"}</TableCell>
                 <TableCell>{m.blood_type ?? "—"}</TableCell>
                 <TableCell>
-                  {m.is_confirmed ? (
+                  {m.is_confirmed && (
                     <Badge variant="success" className="gap-1">
                       <Check className="h-3 w-3" /> Confirmado
-                    </Badge>
-                  ) : (
-                    <Badge variant="warning" className="gap-1">
-                      <AlertCircle className="h-3 w-3" /> Pendiente
                     </Badge>
                   )}
                 </TableCell>
@@ -254,21 +249,15 @@ export function CrewClient({ crew, projectId }: Props) {
                 k="Restricciones alimentarias"
                 v={seleccionado.dietary_restrictions}
               />
+              <Detalle
+                k="Tarifa diaria (COP)"
+                v={
+                  seleccionado.daily_rate != null
+                    ? formatCOP(Number(seleccionado.daily_rate))
+                    : null
+                }
+              />
               <Detalle k="Notas" v={seleccionado.notes} />
-              <div className="flex items-center justify-between pt-2 border-t border-borde">
-                <span className="text-textoSec">Estado</span>
-                <button
-                  onClick={() => toggleConfirmado(seleccionado)}
-                  disabled={pending}
-                  className="cursor-pointer"
-                >
-                  {seleccionado.is_confirmed ? (
-                    <Badge variant="success">Confirmado</Badge>
-                  ) : (
-                    <Badge variant="warning">Pendiente</Badge>
-                  )}
-                </button>
-              </div>
             </div>
             <DialogFooter>
               <Button
@@ -314,11 +303,10 @@ export function CrewClient({ crew, projectId }: Props) {
 }
 
 function Detalle({ k, v }: { k: string; v: string | null | undefined }) {
-  if (!v) return null;
   return (
     <div className="flex justify-between gap-3">
       <span className="text-textoSec shrink-0">{k}</span>
-      <span className="text-right">{v}</span>
+      <span className={`text-right ${!v ? "text-textoSec italic" : ""}`}>{v ?? "—"}</span>
     </div>
   );
 }
