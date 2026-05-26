@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   LineChart,
@@ -204,21 +204,25 @@ export function CashFlowClient({
     }
     setDupPresupuesto(null);
     startTransition(async () => {
-      const res = await guardarCashFlow({
-        id: editando.id || undefined,
-        project_id: projectId,
-        date: editando.date,
-        concept: editando.concept,
-        type: editando.type,
-        amount: Number(editando.amount),
-        category: editando.category,
-        is_projected: editando.is_projected,
-        notes: editando.notes,
-      });
-      if (!res.ok) setError(res.error ?? "Error al guardar");
-      else {
-        setEditando(null);
-        router.refresh();
+      try {
+        const res = await guardarCashFlow({
+          id: editando.id || undefined,
+          project_id: projectId,
+          date: editando.date,
+          concept: editando.concept,
+          type: editando.type,
+          amount: Number(editando.amount),
+          category: editando.category || null,
+          is_projected: editando.is_projected,
+          notes: editando.notes || null,
+        });
+        if (!res.ok) setError(res.error ?? "Error al guardar");
+        else {
+          setEditando(null);
+          router.refresh();
+        }
+      } catch {
+        setError("Error inesperado. Intenta de nuevo.");
       }
     });
   }
@@ -231,7 +235,7 @@ export function CashFlowClient({
     });
   }
 
-  function exportarCSV() {
+  const exportarCSV = useCallback(() => {
     const filas = saldoReal.map(({ movimiento, saldo }) => ({
       fecha: movimiento.date,
       concepto: movimiento.concept,
@@ -251,7 +255,7 @@ export function CashFlowClient({
       { key: "notas", label: "Notas" },
     ]);
     descargarCSV(`cashflow-jeronimo-${new Date().toISOString().slice(0, 10)}.csv`, csv);
-  }
+  }, [saldoReal]);
 
   return (
     <div className="space-y-6">

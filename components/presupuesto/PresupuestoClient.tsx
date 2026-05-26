@@ -158,8 +158,9 @@ export function PresupuestoClient({
     }
     setDupCaja(null);
     startTransition(async () => {
+      try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, created_at: _ca, receipt_url: _r, ...rest } = e;
-      void _ca; void _r;
       const res = await guardarExpense({
         ...(id ? { id } : {}),
         ...rest,
@@ -169,6 +170,9 @@ export function PresupuestoClient({
       else {
         setEditando(null);
         router.refresh();
+      }
+      } catch {
+        setError("Error inesperado. Intenta de nuevo.");
       }
     });
   };
@@ -192,21 +196,25 @@ export function PresupuestoClient({
     }
     setDupExpense(null);
     startCajaTransition(async () => {
-      const res = await guardarCashFlow({
-        id: m.id || undefined,
-        project_id: projectId,
-        date: m.date,
-        concept: m.concept,
-        type: m.type,
-        amount: Number(m.amount),
-        category: m.category,
-        is_projected: false,
-        notes: m.notes,
-      });
-      if (!res.ok) setErrorCaja(res.error ?? "Error guardando");
-      else {
-        setEditandoCaja(null);
-        router.refresh();
+      try {
+        const res = await guardarCashFlow({
+          id: m.id || undefined,
+          project_id: projectId,
+          date: m.date,
+          concept: m.concept,
+          type: m.type,
+          amount: Number(m.amount),
+          category: m.category,
+          is_projected: false,
+          notes: m.notes,
+        });
+        if (!res.ok) setErrorCaja(res.error ?? "Error guardando");
+        else {
+          setEditandoCaja(null);
+          router.refresh();
+        }
+      } catch {
+        setErrorCaja("Error inesperado. Intenta de nuevo.");
       }
     });
   };
@@ -317,9 +325,11 @@ export function PresupuestoClient({
                   }
                   stroke="#0a0a0a"
                 >
-                  {porCategoria.map((c, i) => (
-                    <Cell key={i} fill={c.color} />
-                  ))}
+                  {porCategoria
+                    .filter((c) => c.ejecutado > 0)
+                    .map((c) => (
+                      <Cell key={c.key} fill={c.color} />
+                    ))}
                 </Pie>
                 <Tooltip
                   contentStyle={{

@@ -25,6 +25,8 @@ export type CrewInput = {
 
 export async function guardarCrew(data: CrewInput) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { id, ...rest } = data;
 
   if (id) {
@@ -41,6 +43,8 @@ export async function guardarCrew(data: CrewInput) {
 
 export async function eliminarCrew(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { data: crew } = await supabase.from("crew_members").select("project_id").eq("id", id).single();
   const { error } = await supabase.from("crew_members").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -51,6 +55,8 @@ export async function eliminarCrew(id: string) {
 
 export async function alternarConfirmado(id: string, valor: boolean) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { data: crew } = await supabase.from("crew_members").select("project_id").eq("id", id).single();
   const { error } = await supabase
     .from("crew_members")

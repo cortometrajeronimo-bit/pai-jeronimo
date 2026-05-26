@@ -15,6 +15,8 @@ export type ProducerLogInput = {
 
 export async function guardarLog(data: ProducerLogInput) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { id, project_id, date, category, content, completed_at } = data;
   if (id) {
     const { error } = await supabase
@@ -42,6 +44,8 @@ export async function guardarLog(data: ProducerLogInput) {
 
 export async function eliminarLog(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { error } = await supabase.from("producer_logs").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/logbook");
@@ -54,6 +58,8 @@ export async function agregarActualizacion(logId: string, note: string) {
   const texto = note.trim();
   if (!texto) return { ok: false, error: "La nota está vacía" };
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { error } = await supabase
     .from("producer_log_updates")
     .insert({ log_id: logId, note: texto });
@@ -75,6 +81,8 @@ export async function eliminarActualizacion(updateId: string) {
 
 export async function marcarCompletada(logId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { error } = await supabase
     .from("producer_logs")
     .update({ completed_at: new Date().toISOString() })
@@ -86,6 +94,8 @@ export async function marcarCompletada(logId: string) {
 
 export async function reabrir(logId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { error } = await supabase
     .from("producer_logs")
     .update({ completed_at: null })

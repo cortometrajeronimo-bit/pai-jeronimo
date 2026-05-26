@@ -69,8 +69,13 @@ export function PaymentsClient({
     return { pagado, pendiente, atrasados: atrasados.size };
   }, [datos]);
 
-  const nombreDe = (id: string) => crew.find((c) => c.id === id)?.name ?? "—";
-  const rolDe = (id: string) => crew.find((c) => c.id === id)?.role ?? "";
+  // Mapa O(1) para búsquedas de crew en tabla de pagos
+  const crewMap = useMemo(
+    () => new Map(crew.map((c) => [c.id, c])),
+    [crew]
+  );
+  const nombreDe = (id: string) => crewMap.get(id)?.name ?? "—";
+  const rolDe = (id: string) => crewMap.get(id)?.role ?? "";
 
   function abrirNuevo() {
     setError(null);

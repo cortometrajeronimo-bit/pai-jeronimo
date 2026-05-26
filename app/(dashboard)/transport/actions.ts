@@ -18,6 +18,8 @@ export type TransportInput = {
 
 export async function guardarTransporte(data: TransportInput) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { id, ...rest } = data;
   if (id) {
     const { error } = await supabase.from("transport").update(rest).eq("id", id);
@@ -32,6 +34,8 @@ export async function guardarTransporte(data: TransportInput) {
 
 export async function eliminarTransporte(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada." };
   const { error } = await supabase.from("transport").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/transport");
