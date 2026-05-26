@@ -1,12 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, FileText, Film, Calendar, ListChecks, Folder } from "lucide-react";
+import {
+  ExternalLink,
+  FileText,
+  Film,
+  Calendar,
+  ListChecks,
+  Folder,
+  Camera,
+  Palette,
+  Music,
+  Megaphone,
+  Scissors,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type Categoria = "guion" | "guion_tecnico" | "cronograma" | "plan_rodaje" | "otro";
+type Categoria =
+  | "guion"
+  | "guion_tecnico"
+  | "cronograma"
+  | "plan_rodaje"
+  | "propuesta_direccion"
+  | "propuesta_foto"
+  | "propuesta_arte"
+  | "propuesta_sonido"
+  | "propuesta_montaje"
+  | "otro";
 
 export type DocumentoProyecto = {
   id: string;
@@ -16,11 +38,16 @@ export type DocumentoProyecto = {
 };
 
 const ETIQUETAS: Record<Categoria, { label: string; icon: typeof FileText }> = {
-  guion: { label: "Guion", icon: FileText },
-  guion_tecnico: { label: "Guion técnico", icon: Film },
-  cronograma: { label: "Cronograma", icon: Calendar },
-  plan_rodaje: { label: "Plan de rodaje", icon: ListChecks },
-  otro: { label: "Otro", icon: Folder },
+  guion:                { label: "Guion",        icon: FileText },
+  guion_tecnico:        { label: "Guion técnico",icon: Film },
+  cronograma:           { label: "Cronograma",   icon: Calendar },
+  plan_rodaje:          { label: "Plan rodaje",  icon: ListChecks },
+  propuesta_direccion:  { label: "Dirección",    icon: Megaphone },
+  propuesta_foto:       { label: "Foto",         icon: Camera },
+  propuesta_arte:       { label: "Arte",         icon: Palette },
+  propuesta_sonido:     { label: "Sonido",       icon: Music },
+  propuesta_montaje:    { label: "Montaje",      icon: Scissors },
+  otro:                 { label: "Otro",         icon: Folder },
 };
 
 export function DocViewer({ documentos }: { documentos: DocumentoProyecto[] }) {
@@ -46,34 +73,37 @@ export function DocViewer({ documentos }: { documentos: DocumentoProyecto[] }) {
     : null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-      {/* Selector vertical */}
-      <div className="space-y-1">
-        {documentos.map((d) => {
-          const meta = ETIQUETAS[d.category];
-          const Icon = meta.icon;
-          const activo = seleccionado?.id === d.id;
-          return (
-            <button
-              key={d.id}
-              onClick={() => setSeleccionado(d)}
-              className={cn(
-                "w-full text-left rounded-md px-3 py-2 text-sm transition-colors border",
-                activo
-                  ? "bg-superficieAlt border-acento text-white"
-                  : "bg-superficie border-borde text-textoSec hover:text-white hover:border-acento/50"
-              )}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className="h-4 w-4 text-acento shrink-0" />
-                <Badge variant="outline" className="text-[10px]">
-                  {meta.label}
-                </Badge>
-              </div>
-              <p className="text-xs font-medium line-clamp-2">{d.title}</p>
-            </button>
-          );
-        })}
+    <div className="space-y-3 lg:grid lg:grid-cols-[260px_1fr] lg:gap-4 lg:space-y-0">
+      {/* Selector: chips horizontales scrollables en móvil, columna vertical en lg */}
+      <div className="-mx-1 px-1 overflow-x-auto lg:overflow-x-visible lg:mx-0 lg:px-0">
+        <div className="flex gap-2 snap-x snap-mandatory lg:flex-col lg:gap-1 lg:snap-none">
+          {documentos.map((d) => {
+            const meta = ETIQUETAS[d.category] ?? ETIQUETAS.otro;
+            const Icon = meta.icon;
+            const activo = seleccionado?.id === d.id;
+            return (
+              <button
+                key={d.id}
+                onClick={() => setSeleccionado(d)}
+                aria-pressed={activo}
+                className={cn(
+                  "snap-start shrink-0 w-[160px] lg:w-full text-left rounded-md px-3 py-2 text-sm transition-colors border",
+                  activo
+                    ? "bg-superficieAlt border-acento text-white"
+                    : "bg-superficie border-borde text-textoSec hover:text-white hover:border-acento/50 active:border-acento/80"
+                )}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className="h-4 w-4 text-acento shrink-0" />
+                  <Badge variant="outline" className="text-[10px]">
+                    {meta.label}
+                  </Badge>
+                </div>
+                <p className="text-xs font-medium line-clamp-2">{d.title}</p>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Viewer */}
@@ -98,7 +128,7 @@ export function DocViewer({ documentos }: { documentos: DocumentoProyecto[] }) {
           <iframe
             key={url}
             src={url}
-            className="w-full h-[70vh] min-h-[480px] rounded-md border border-borde bg-superficie"
+            className="w-full h-[calc(100dvh-200px)] min-h-[60vh] lg:h-[70vh] lg:min-h-[480px] rounded-md border border-borde bg-superficie"
             allow="autoplay"
             title={seleccionado?.title ?? "Documento"}
           />

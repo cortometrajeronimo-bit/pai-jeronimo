@@ -9,6 +9,11 @@ export type Categoria =
   | "guion_tecnico"
   | "cronograma"
   | "plan_rodaje"
+  | "propuesta_direccion"
+  | "propuesta_foto"
+  | "propuesta_arte"
+  | "propuesta_sonido"
+  | "propuesta_montaje"
   | "otro";
 
 type Resp = { ok: true } | { ok: false; error: string };

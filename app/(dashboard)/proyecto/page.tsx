@@ -31,9 +31,9 @@ import { PushOptInButton } from "@/components/notifications/PushOptInButton";
 
 const FASES = [
   { key: "desarrollo", label: "Desarrollo", inicio: "2026-01-01", fin: "2026-03-31" },
-  { key: "pre", label: "Pre-producción", inicio: "2026-04-01", fin: "2026-06-03" },
-  { key: "produccion", label: "Producción", inicio: "2026-06-04", fin: "2026-06-10" },
-  { key: "post", label: "Post-producción", inicio: "2026-06-11", fin: "2026-08-31" },
+  { key: "pre", label: "Pre-producción", inicio: "2026-04-01", fin: "2026-06-05" },
+  { key: "produccion", label: "Producción", inicio: "2026-06-06", fin: "2026-06-11" },
+  { key: "post", label: "Post-producción", inicio: "2026-06-12", fin: "2026-08-31" },
 ];
 
 function calcularFaseActual(hoy: Date): string {
@@ -118,12 +118,12 @@ export default async function ProyectoPage() {
     climaTulua(),
   ]);
 
-  const fechaRodaje = new Date(project?.start_date ?? "2026-06-04");
+  const fechaRodaje = new Date(project?.start_date ?? "2026-06-06");
   const diasRestantes = Math.ceil(
     (fechaRodaje.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  const presupuesto = Number(project?.budget_total ?? 9_540_500);
+  const presupuesto = Number(project?.budget_total ?? 10_300_500);
   // Solo cuenta como ejecutado lo que realmente se gastó (status='ejecutado').
   // 'planeado' y 'comprometido' son montos proyectados, no gastos reales.
   const ejecutado = (expenses ?? [])

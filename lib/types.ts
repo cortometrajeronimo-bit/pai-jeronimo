@@ -253,7 +253,17 @@ export type Incident = {
 export type ProjectDocument = {
   id: string;
   project_id: string;
-  category: "guion" | "guion_tecnico" | "cronograma" | "plan_rodaje" | "otro";
+  category:
+    | "guion"
+    | "guion_tecnico"
+    | "cronograma"
+    | "plan_rodaje"
+    | "propuesta_direccion"
+    | "propuesta_foto"
+    | "propuesta_arte"
+    | "propuesta_sonido"
+    | "propuesta_montaje"
+    | "otro";
   title: string;
   drive_file_id: string;
   pinned_in_proyecto: boolean;

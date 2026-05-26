@@ -16,7 +16,7 @@ export default async function CashFlowPage() {
     .order("date", { ascending: true });
 
   const projectId = project?.id ?? "";
-  const presupuesto = Number(project?.budget_total ?? 9_540_500);
+  const presupuesto = Number(project?.budget_total ?? 10_300_500);
 
   return (
     <div className="space-y-6">

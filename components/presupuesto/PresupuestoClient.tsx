@@ -41,13 +41,13 @@ import {
 
 const CATEGORIAS = [
   { key: "desarrollo", label: "Desarrollo", presupuesto: 318_000, color: "#d4af37" },
-  { key: "pre-produccion", label: "Pre-producción", presupuesto: 412_500, color: "#a8861e" },
+  { key: "pre-produccion", label: "Pre-producción", presupuesto: 572_500, color: "#a8861e" },
   { key: "produccion", label: "Producción", presupuesto: 5_910_000, color: "#e6c558" },
-  { key: "post-produccion", label: "Post-producción", presupuesto: 2_900_000, color: "#9c7a1c" },
+  { key: "post-produccion", label: "Post-producción", presupuesto: 3_500_000, color: "#9c7a1c" },
 ];
 
 const ESTADOS = ["planeado", "comprometido", "ejecutado", "cancelado"];
-const TOTAL = 9_540_500;
+const TOTAL = 10_300_500;
 
 const VACIO = (projectId: string): Expense => ({
   id: "",

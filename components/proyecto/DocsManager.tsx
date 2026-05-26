@@ -26,6 +26,11 @@ const CATEGORIAS: { value: Categoria; label: string }[] = [
   { value: "guion_tecnico", label: "Guion técnico" },
   { value: "cronograma", label: "Cronograma" },
   { value: "plan_rodaje", label: "Plan de rodaje" },
+  { value: "propuesta_direccion", label: "Propuesta de Dirección" },
+  { value: "propuesta_foto", label: "Propuesta de Foto" },
+  { value: "propuesta_arte", label: "Propuesta de Arte" },
+  { value: "propuesta_sonido", label: "Propuesta de Sonido" },
+  { value: "propuesta_montaje", label: "Propuesta de Montaje" },
   { value: "otro", label: "Otro" },
 ];
 
