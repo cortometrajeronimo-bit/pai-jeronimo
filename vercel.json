@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/drive/sync-auto",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/notifications/check-urgent",
