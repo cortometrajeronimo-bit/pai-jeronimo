@@ -23,7 +23,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
-import type { CashFlow } from "@/lib/types";
+import type { CashFlow, Expense } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,17 +99,21 @@ export function CashFlowClient({
   projectId,
   presupuesto,
   presupuestoDisponible: presupuestoDisponibleProp,
+  expenses,
 }: {
   movimientos: CashFlow[];
   projectId: string;
   presupuesto: number;
   presupuestoDisponible?: number;
+  expenses?: Pick<Expense, "concept" | "amount">[];
 }) {
   const router = useRouter();
   const [vista, setVista] = useState<Vista>("diaria");
   const [editando, setEditando] = useState<CashFlow | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Estado para alerta de duplicado cruzado con Presupuesto
+  const [dupPresupuesto, setDupPresupuesto] = useState<{ concept: string; amount: number } | null>(null);
 
   const reales = useMemo(() => movimientos.filter((m) => !m.is_projected), [movimientos]);
   const proyectados = useMemo(
@@ -180,12 +184,25 @@ export function CashFlowClient({
     setEditando({ ...VACIO(projectId), type: tipo, is_projected: proyectado });
   }
 
-  function guardar() {
+  function guardar(confirmar = false) {
     if (!editando) return;
     if (!editando.concept.trim() || editando.amount <= 0) {
       setError("Concepto y monto son obligatorios");
       return;
     }
+    // Verificar duplicado cruzado: solo registros nuevos (sin id)
+    if (!editando.id && !confirmar && expenses?.length) {
+      const dup = expenses.find(
+        (e) =>
+          e.concept.trim().toLowerCase() === editando.concept.trim().toLowerCase() &&
+          Number(e.amount) === Number(editando.amount)
+      );
+      if (dup) {
+        setDupPresupuesto({ concept: dup.concept, amount: Number(dup.amount) });
+        return;
+      }
+    }
+    setDupPresupuesto(null);
     startTransition(async () => {
       const res = await guardarCashFlow({
         id: editando.id || undefined,
@@ -389,7 +406,7 @@ export function CashFlowClient({
 
       {/* Modal CRUD */}
       {editando && (
-        <Dialog open onClose={() => setEditando(null)}>
+        <Dialog open onClose={() => { setEditando(null); setDupPresupuesto(null); }}>
           <DialogHeader>
             <DialogTitle>
               {editando.id ? "Editar" : "Nuevo"}{" "}
@@ -479,6 +496,29 @@ export function CashFlowClient({
               Es una proyección (movimiento futuro estimado)
             </label>
             {error && <p className="text-sm text-error">{error}</p>}
+
+            {/* Banner alerta: duplicado en Presupuesto */}
+            {dupPresupuesto && (
+              <div className="rounded border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
+                <p className="font-semibold text-amber-400 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> ¿Posible duplicado?
+                </p>
+                <p className="text-textoSec">
+                  Ya existe en <strong>Presupuesto</strong> el concepto{" "}
+                  <span className="text-white">&ldquo;{dupPresupuesto.concept}&rdquo;</span> por{" "}
+                  <span className="text-white">{formatCOP(dupPresupuesto.amount)}</span>.
+                  Registrarlo aquí también lo descontará <strong>dos veces</strong> del presupuesto.
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" variant="outline" onClick={() => setDupPresupuesto(null)}>
+                    Cancelar
+                  </Button>
+                  <Button size="sm" onClick={() => guardar(true)}>
+                    Sí, registrar de todas formas
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -494,12 +534,14 @@ export function CashFlowClient({
                 <Trash2 className="h-4 w-4 mr-1" /> Eliminar
               </Button>
             )}
-            <Button variant="outline" onClick={() => setEditando(null)} disabled={pending}>
+            <Button variant="outline" onClick={() => { setEditando(null); setDupPresupuesto(null); }} disabled={pending}>
               Cancelar
             </Button>
-            <Button onClick={guardar} disabled={pending}>
-              {pending ? "Guardando..." : "Guardar"}
-            </Button>
+            {!dupPresupuesto && (
+              <Button onClick={() => guardar()} disabled={pending}>
+                {pending ? "Guardando..." : "Guardar"}
+              </Button>
+            )}
           </DialogFooter>
         </Dialog>
       )}

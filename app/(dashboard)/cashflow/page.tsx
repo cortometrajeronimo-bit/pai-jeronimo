@@ -21,7 +21,7 @@ export default async function CashFlowPage() {
       .order("date", { ascending: true }),
     supabase
       .from("expenses")
-      .select("amount, status")
+      .select("concept, amount, status")
       .eq("project_id", projectId),
   ]);
 
@@ -58,6 +58,7 @@ export default async function CashFlowPage() {
           projectId={projectId}
           presupuesto={presupuesto}
           presupuestoDisponible={presupuestoDisponible}
+          expenses={expenses ?? []}
         />
       )}
     </div>

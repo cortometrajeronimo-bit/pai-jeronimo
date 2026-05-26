@@ -100,6 +100,9 @@ export function PresupuestoClient({
   const [pendingCaja, startCajaTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [errorCaja, setErrorCaja] = useState<string | null>(null);
+  // Alertas de duplicado cruzado
+  const [dupCaja, setDupCaja] = useState<CashFlow | null>(null);
+  const [dupExpense, setDupExpense] = useState<Expense | null>(null);
 
   const filtrados = useMemo(() => {
     return expenses.filter((e) => {
@@ -139,8 +142,21 @@ export function PresupuestoClient({
   const disponible = TOTAL - ejecutadoTotal - comprometidoTotal;
   const alerta = pctTotal > 80;
 
-  const onGuardar = (e: Expense) => {
+  const onGuardar = (e: Expense, confirmar = false) => {
     setError(null);
+    // Verificar duplicado cruzado: solo registros nuevos
+    if (!e.id && !confirmar) {
+      const dup = movimientosCaja.find(
+        (m) =>
+          m.concept.trim().toLowerCase() === e.concept.trim().toLowerCase() &&
+          Number(m.amount) === Number(e.amount)
+      );
+      if (dup) {
+        setDupCaja(dup);
+        return;
+      }
+    }
+    setDupCaja(null);
     startTransition(async () => {
       const { id, created_at: _ca, receipt_url: _r, ...rest } = e;
       void _ca; void _r;
@@ -157,11 +173,24 @@ export function PresupuestoClient({
     });
   };
 
-  const onGuardarCaja = (m: CashFlow) => {
+  const onGuardarCaja = (m: CashFlow, confirmar = false) => {
     setErrorCaja(null);
     if (!m.concept.trim() || m.amount <= 0) {
       setErrorCaja("Concepto y monto son obligatorios"); return;
     }
+    // Verificar duplicado cruzado: solo registros nuevos
+    if (!m.id && !confirmar) {
+      const dup = expenses.find(
+        (e) =>
+          e.concept.trim().toLowerCase() === m.concept.trim().toLowerCase() &&
+          Number(e.amount) === Number(m.amount)
+      );
+      if (dup) {
+        setDupExpense(dup);
+        return;
+      }
+    }
+    setDupExpense(null);
     startCajaTransition(async () => {
       const res = await guardarCashFlow({
         id: m.id || undefined,
@@ -464,16 +493,18 @@ export function PresupuestoClient({
 
       <Dialog
         open={!!editando}
-        onClose={() => { setEditando(null); setError(null); }}
+        onClose={() => { setEditando(null); setError(null); setDupCaja(null); }}
       >
         {editando && (
           <ExpenseForm
             inicial={editando}
             onCambio={setEditando}
             onGuardar={onGuardar}
-            onCancelar={() => setEditando(null)}
+            onCancelar={() => { setEditando(null); setDupCaja(null); }}
             pending={pending}
             error={error}
+            dupCaja={dupCaja}
+            onClearDup={() => setDupCaja(null)}
           />
         )}
       </Dialog>
@@ -556,7 +587,7 @@ export function PresupuestoClient({
       </Card>
 
       {/* Modal: nuevo/editar movimiento de caja */}
-      <Dialog open={!!editandoCaja} onClose={() => { setEditandoCaja(null); setErrorCaja(null); }}>
+      <Dialog open={!!editandoCaja} onClose={() => { setEditandoCaja(null); setErrorCaja(null); setDupExpense(null); }}>
         {editandoCaja && (
           <>
             <DialogHeader>
@@ -631,14 +662,39 @@ export function PresupuestoClient({
                 />
               </div>
               {errorCaja && <p className="text-sm text-error">{errorCaja}</p>}
+
+              {/* Banner alerta: duplicado en Presupuesto */}
+              {dupExpense && (
+                <div className="rounded border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
+                  <p className="font-semibold text-amber-400 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" /> ¿Posible duplicado?
+                  </p>
+                  <p className="text-textoSec">
+                    Ya existe en <strong>Presupuesto</strong> el concepto{" "}
+                    <span className="text-white">&ldquo;{dupExpense.concept}&rdquo;</span> por{" "}
+                    <span className="text-white">{formatCOP(Number(dupExpense.amount))}</span>.
+                    Registrarlo aquí también lo descontará <strong>dos veces</strong> del presupuesto.
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => setDupExpense(null)}>
+                      Cancelar
+                    </Button>
+                    <Button size="sm" onClick={() => onGuardarCaja(editandoCaja, true)}>
+                      Sí, registrar de todas formas
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setEditandoCaja(null); setErrorCaja(null); }} disabled={pendingCaja}>
+              <Button variant="outline" onClick={() => { setEditandoCaja(null); setErrorCaja(null); setDupExpense(null); }} disabled={pendingCaja}>
                 Cancelar
               </Button>
-              <Button onClick={() => onGuardarCaja(editandoCaja)} disabled={pendingCaja}>
-                {pendingCaja ? "Guardando…" : "Guardar"}
-              </Button>
+              {!dupExpense && (
+                <Button onClick={() => onGuardarCaja(editandoCaja)} disabled={pendingCaja}>
+                  {pendingCaja ? "Guardando…" : "Guardar"}
+                </Button>
+              )}
             </DialogFooter>
           </>
         )}
@@ -654,13 +710,17 @@ function ExpenseForm({
   onCancelar,
   pending,
   error,
+  dupCaja,
+  onClearDup,
 }: {
   inicial: Expense;
   onCambio: (e: Expense) => void;
-  onGuardar: (e: Expense) => void;
+  onGuardar: (e: Expense, confirmar?: boolean) => void;
   onCancelar: () => void;
   pending: boolean;
   error: string | null;
+  dupCaja?: CashFlow | null;
+  onClearDup?: () => void;
 }) {
   const set = (k: keyof Expense, v: unknown) =>
     onCambio({ ...inicial, [k]: v });
@@ -744,14 +804,39 @@ function ExpenseForm({
 
         {error && <p className="md:col-span-2 text-sm text-error">{error}</p>}
 
-        <DialogFooter className="md:col-span-2">
-          <Button type="button" variant="outline" onClick={onCancelar}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Guardando…" : "Guardar"}
-          </Button>
-        </DialogFooter>
+        {/* Banner alerta: duplicado en Flujo de Caja */}
+        {dupCaja && (
+          <div className="md:col-span-2 rounded border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
+            <p className="font-semibold text-amber-400 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" /> ¿Posible duplicado?
+            </p>
+            <p className="text-textoSec">
+              Ya existe en <strong>Flujo de Caja</strong> el concepto{" "}
+              <span className="text-white">&ldquo;{dupCaja.concept}&rdquo;</span> por{" "}
+              <span className="text-white">{formatCOP(Number(dupCaja.amount))}</span>.
+              Registrarlo aquí también lo descontará <strong>dos veces</strong> del presupuesto.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button type="button" size="sm" variant="outline" onClick={onClearDup}>
+                Cancelar
+              </Button>
+              <Button type="button" size="sm" onClick={() => onGuardar(inicial, true)}>
+                Sí, registrar de todas formas
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!dupCaja && (
+          <DialogFooter className="md:col-span-2">
+            <Button type="button" variant="outline" onClick={onCancelar}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        )}
       </form>
     </>
   );
