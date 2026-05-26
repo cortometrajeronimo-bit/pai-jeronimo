@@ -402,10 +402,18 @@ export function CashFlowClient({
               <Label>Monto (COP)</Label>
               <Input
                 type="number"
-                value={editando.amount}
-                onChange={(e) =>
-                  setEditando({ ...editando, amount: Number(e.target.value) })
-                }
+                inputMode="decimal"
+                min={0}
+                step="any"
+                placeholder="0"
+                value={editando.amount === 0 ? "" : editando.amount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEditando({
+                    ...editando,
+                    amount: v === "" ? 0 : Number(v),
+                  });
+                }}
               />
             </div>
             <div>

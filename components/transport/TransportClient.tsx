@@ -216,10 +216,21 @@ export function TransportClient({
                 <Label>Capacidad</Label>
                 <Input
                   type="number"
-                  value={editando.capacity ?? 0}
-                  onChange={(e) =>
-                    setEditando({ ...editando, capacity: Number(e.target.value) })
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="0"
+                  value={
+                    editando.capacity === null || editando.capacity === 0
+                      ? ""
+                      : editando.capacity
                   }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditando({
+                      ...editando,
+                      capacity: v === "" ? null : Number(v),
+                    });
+                  }}
                 />
               </div>
             </div>

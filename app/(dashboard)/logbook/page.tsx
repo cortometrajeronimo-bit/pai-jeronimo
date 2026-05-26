@@ -9,9 +9,12 @@ export default async function LogbookPage() {
     .eq("name", "JERÓNIMO")
     .maybeSingle();
 
+  // Trae cada bitácora con sus updates anidadas (single round-trip, evita N+1)
   const { data: logs } = await supabase
     .from("producer_logs")
-    .select("*")
+    .select(
+      "*, producer_log_updates(id, log_id, note, created_at)"
+    )
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 

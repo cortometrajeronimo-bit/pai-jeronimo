@@ -30,7 +30,7 @@ export function RegisterForm() {
       return;
     }
     if (data.session) {
-      router.push("/dashboard");
+      router.push("/proyecto");
       router.refresh();
     } else {
       setInfo("Revisa tu correo para confirmar la cuenta y luego inicia sesión.");

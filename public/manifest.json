@@ -1,0 +1,55 @@
+{
+  "name": "P.A.I. JERÓNIMO",
+  "short_name": "P.A.I.",
+  "description": "Producer Assistant Intelligence — Cortometraje JERÓNIMO, Tuluá Junio 2026",
+  "theme_color": "#d4af37",
+  "background_color": "#0a0a0a",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/proyecto",
+  "scope": "/",
+  "lang": "es",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Crew",
+      "url": "/crew",
+      "description": "Ver el equipo del cortometraje"
+    },
+    {
+      "name": "Call Sheet",
+      "url": "/call-sheets",
+      "description": "Generar call sheet del día"
+    },
+    {
+      "name": "Daily Report",
+      "url": "/daily-reports",
+      "description": "Reporte diario de producción"
+    }
+  ]
+}

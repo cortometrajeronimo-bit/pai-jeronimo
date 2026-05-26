@@ -1,7 +1,21 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Plus, Trash2, Pencil, Search, AlertCircle, Briefcase, Users, Building2, FileText } from "lucide-react";
+import { useMemo, useRef, useState, useTransition, useEffect } from "react";
+import {
+  Plus,
+  Trash2,
+  Pencil,
+  Search,
+  AlertCircle,
+  Briefcase,
+  Users,
+  Building2,
+  FileText,
+  CheckCircle2,
+  RotateCcw,
+  MessageSquarePlus,
+  ChevronDown,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ProducerLog } from "@/lib/types";
 
@@ -14,7 +28,14 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { guardarLog, eliminarLog } from "@/app/(dashboard)/logbook/actions";
+import {
+  guardarLog,
+  eliminarLog,
+  agregarActualizacion,
+  eliminarActualizacion,
+  marcarCompletada,
+  reabrir,
+} from "@/app/(dashboard)/logbook/actions";
 
 type Categoria = ProducerLog["category"];
 
@@ -33,7 +54,20 @@ const VACIO = (projectId: string): ProducerLog => ({
   category: "general",
   content: "",
   created_at: "",
+  completed_at: null,
+  last_notified_at: null,
+  producer_log_updates: [],
 });
+
+function formatHora(iso: string) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export function LogbookClient({
   logs,
@@ -45,17 +79,26 @@ export function LogbookClient({
   const [filtroCat, setFiltroCat] = useState<string>("");
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<ProducerLog | null>(null);
+  const [expandido, setExpandido] = useState<Record<string, boolean>>({});
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [mostrarCompletadas, setMostrarCompletadas] = useState(false);
 
   const filtrados = useMemo(() => {
     return logs.filter((l) => {
       if (filtroCat && l.category !== filtroCat) return false;
-      if (busqueda && !l.content.toLowerCase().includes(busqueda.toLowerCase()))
-        return false;
+      if (!mostrarCompletadas && l.completed_at) return false;
+      if (busqueda) {
+        const q = busqueda.toLowerCase();
+        const enContent = l.content.toLowerCase().includes(q);
+        const enUpdates = (l.producer_log_updates ?? []).some((u) =>
+          u.note.toLowerCase().includes(q)
+        );
+        if (!enContent && !enUpdates) return false;
+      }
       return true;
     });
-  }, [logs, filtroCat, busqueda]);
+  }, [logs, filtroCat, busqueda, mostrarCompletadas]);
 
   function abrirNuevo() {
     setError(null);
@@ -81,9 +124,16 @@ export function LogbookClient({
   }
 
   function eliminar(id: string) {
-    if (!confirm("¿Eliminar esta entrada?")) return;
+    if (!confirm("¿Eliminar esta entrada y todas sus actualizaciones?")) return;
     startTransition(async () => {
       await eliminarLog(id);
+    });
+  }
+
+  function toggleCompletada(l: ProducerLog) {
+    startTransition(async () => {
+      if (l.completed_at) await reabrir(l.id);
+      else await marcarCompletada(l.id);
     });
   }
 
@@ -94,7 +144,7 @@ export function LogbookClient({
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textoSec" />
           <Input
-            placeholder="Buscar en contenido..."
+            placeholder="Buscar en contenido y actualizaciones..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="pl-9"
@@ -112,6 +162,15 @@ export function LogbookClient({
             </option>
           ))}
         </Select>
+        <label className="flex items-center gap-2 text-xs text-textoSec cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={mostrarCompletadas}
+            onChange={(e) => setMostrarCompletadas(e.target.checked)}
+            className="accent-acento"
+          />
+          Mostrar completadas
+        </label>
         <Button onClick={abrirNuevo}>
           <Plus className="h-4 w-4 mr-1" /> Nueva entrada
         </Button>
@@ -131,8 +190,19 @@ export function LogbookClient({
           {filtrados.map((l) => {
             const meta = CATEGORIAS.find((c) => c.key === l.category)!;
             const Icon = meta.icon;
+            const updates = (l.producer_log_updates ?? []).slice().sort((a, b) =>
+              a.created_at.localeCompare(b.created_at)
+            );
+            const isOpen = expandido[l.id] ?? false;
+            const completada = !!l.completed_at;
+
             return (
-              <Card key={l.id} className="hover:border-acento transition-colors">
+              <Card
+                key={l.id}
+                className={`hover:border-acento transition-colors ${
+                  completada ? "opacity-60" : ""
+                }`}
+              >
                 <CardContent className="py-3">
                   <div className="flex items-start gap-3">
                     <div className="flex flex-col items-center pt-1">
@@ -151,10 +221,53 @@ export function LogbookClient({
                             minute: "2-digit",
                           })}
                         </span>
+                        {completada && (
+                          <Badge variant="success" className="text-[10px]">
+                            ✅ Completada {formatHora(l.completed_at!)}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{l.content}</p>
+
+                      {/* Hilo de actualizaciones */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandido((p) => ({ ...p, [l.id]: !p[l.id] }))
+                        }
+                        className="mt-2 inline-flex items-center gap-1 text-xs text-acento hover:underline"
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${
+                            isOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                        Actualizaciones ({updates.length})
+                      </button>
+
+                      {isOpen && (
+                        <HiloActualizaciones
+                          logId={l.id}
+                          updates={updates}
+                          pending={pending}
+                          startTransition={startTransition}
+                        />
+                      )}
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex flex-col gap-1 items-end">
+                      <button
+                        onClick={() => toggleCompletada(l)}
+                        className={`p-1 rounded hover:bg-superficieAlt ${
+                          completada ? "text-textoSec" : "text-exito"
+                        }`}
+                        title={completada ? "Reabrir" : "Marcar completada"}
+                      >
+                        {completada ? (
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                      </button>
                       <button
                         onClick={() => setEditando(l)}
                         className="text-textoSec hover:text-acento"
@@ -216,6 +329,12 @@ export function LogbookClient({
                 onChange={(e) => setEditando({ ...editando, content: e.target.value })}
                 placeholder="¿Qué pasó? Decisión, recordatorio, observación..."
               />
+              {editando.id && (
+                <p className="text-[11px] text-textoSec mt-1">
+                  Para añadir seguimiento sin sobrescribir el original, cierra
+                  este diálogo y usa &quot;Actualizaciones&quot; en la card.
+                </p>
+              )}
             </div>
             {error && <p className="text-sm text-error">{error}</p>}
           </div>
@@ -230,6 +349,109 @@ export function LogbookClient({
           </DialogFooter>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+function HiloActualizaciones({
+  logId,
+  updates,
+  pending,
+  startTransition,
+}: {
+  logId: string;
+  updates: NonNullable<ProducerLog["producer_log_updates"]>;
+  pending: boolean;
+  startTransition: React.TransitionStartFunction;
+}) {
+  const [nueva, setNueva] = useState("");
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll al final cuando llega una nueva nota
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [updates.length]);
+
+  function enviar() {
+    const texto = nueva.trim();
+    if (!texto) {
+      setErrorLocal("Escribe una nota");
+      return;
+    }
+    setErrorLocal(null);
+    startTransition(async () => {
+      const r = await agregarActualizacion(logId, texto);
+      if (!r.ok) setErrorLocal(r.error ?? "Error");
+      else setNueva("");
+    });
+  }
+
+  function quitar(updateId: string) {
+    if (!confirm("¿Eliminar esta nota?")) return;
+    startTransition(async () => {
+      await eliminarActualizacion(updateId);
+    });
+  }
+
+  return (
+    <div className="mt-3 rounded-md border border-borde bg-superficieAlt/40 p-2 space-y-2">
+      <div
+        ref={listRef}
+        className="max-h-[40vh] overflow-y-auto space-y-2 pr-1"
+      >
+        {updates.length === 0 ? (
+          <p className="text-xs text-textoSec italic px-1 py-2">
+            Aún no hay actualizaciones. Añade la primera abajo.
+          </p>
+        ) : (
+          updates.map((u) => (
+            <div
+              key={u.id}
+              className="rounded bg-superficie/60 px-2 py-1.5 text-xs flex items-start gap-2 group"
+            >
+              <span className="text-textoTerc shrink-0">
+                {formatHora(u.created_at)}
+              </span>
+              <p className="flex-1 whitespace-pre-wrap text-textoPri">{u.note}</p>
+              <button
+                onClick={() => quitar(u.id)}
+                className="opacity-0 group-hover:opacity-100 text-textoSec hover:text-error transition-opacity shrink-0"
+                title="Eliminar nota"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Textarea
+          rows={2}
+          value={nueva}
+          onChange={(e) => setNueva(e.target.value)}
+          placeholder="Añadir nota de seguimiento..."
+          className="text-xs"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) enviar();
+          }}
+        />
+        <Button
+          size="sm"
+          onClick={enviar}
+          disabled={pending}
+          className="self-stretch"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+        </Button>
+      </div>
+      {errorLocal && <p className="text-xs text-error">{errorLocal}</p>}
+      <p className="text-[10px] text-textoTerc">
+        Ctrl/Cmd + Enter para enviar. La fecha se pone automática.
+      </p>
     </div>
   );
 }

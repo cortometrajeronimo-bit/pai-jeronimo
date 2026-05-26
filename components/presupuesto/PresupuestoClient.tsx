@@ -86,16 +86,31 @@ export function PresupuestoClient({
 
   const porCategoria = useMemo(() => {
     return CATEGORIAS.map((c) => {
+      // Solo 'ejecutado' cuenta como gasto real
       const ej = filtrados
-        .filter((e) => e.category === c.key && e.status !== "cancelado")
+        .filter((e) => e.category === c.key && e.status === "ejecutado")
         .reduce((acc, e) => acc + Number(e.amount), 0);
-      return { ...c, ejecutado: ej, pct: Math.round((ej / c.presupuesto) * 100) };
+      const comp = filtrados
+        .filter((e) => e.category === c.key && e.status === "comprometido")
+        .reduce((acc, e) => acc + Number(e.amount), 0);
+      const plan = filtrados
+        .filter((e) => e.category === c.key && e.status === "planeado")
+        .reduce((acc, e) => acc + Number(e.amount), 0);
+      return {
+        ...c,
+        ejecutado: ej,
+        comprometido: comp,
+        planeado: plan,
+        pct: c.presupuesto > 0 ? Math.round((ej / c.presupuesto) * 100) : 0,
+      };
     });
   }, [filtrados]);
 
   const ejecutadoTotal = porCategoria.reduce((a, b) => a + b.ejecutado, 0);
+  const comprometidoTotal = porCategoria.reduce((a, b) => a + b.comprometido, 0);
+  const planeadoTotal = porCategoria.reduce((a, b) => a + b.planeado, 0);
   const pctTotal = Math.round((ejecutadoTotal / TOTAL) * 100);
-  const disponible = TOTAL - ejecutadoTotal;
+  const disponible = TOTAL - ejecutadoTotal - comprometidoTotal;
   const alerta = pctTotal > 80;
 
   const onGuardar = (e: Expense) => {
@@ -124,7 +139,7 @@ export function PresupuestoClient({
   return (
     <div className="space-y-6">
       {/* Cards resumen */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-textoSec">Total</CardTitle>
@@ -141,6 +156,20 @@ export function PresupuestoClient({
             <p className="text-2xl font-bold text-acento">
               {formatCOP(ejecutadoTotal)}
             </p>
+            <p className="text-[10px] text-textoSec mt-1">solo gastos reales</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-textoSec">Comprometido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-amber-400">
+              {formatCOP(comprometidoTotal)}
+            </p>
+            <p className="text-[10px] text-textoSec mt-1">
+              aprobado, sin pagar
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -149,6 +178,11 @@ export function PresupuestoClient({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatCOP(disponible)}</p>
+            {planeadoTotal > 0 && (
+              <p className="text-[10px] text-textoSec mt-1">
+                + {formatCOP(planeadoTotal)} planeado
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className={alerta ? "border-error" : ""}>
@@ -468,10 +502,16 @@ function ExpenseForm({
           <Label className="text-xs text-textoSec">Monto (COP) *</Label>
           <Input
             type="number"
+            inputMode="decimal"
             min={0}
+            step="any"
             required
-            value={inicial.amount}
-            onChange={(e) => set("amount", Number(e.target.value))}
+            placeholder="0"
+            value={inicial.amount === 0 ? "" : inicial.amount}
+            onChange={(e) => {
+              const v = e.target.value;
+              set("amount", v === "" ? 0 : Number(v));
+            }}
             className="mt-1"
           />
         </div>

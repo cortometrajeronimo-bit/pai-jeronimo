@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
       return;
     }
     setListo(true);
-    setTimeout(() => router.push("/dashboard"), 2000);
+    setTimeout(() => router.push("/proyecto"), 2000);
   }
 
   return (

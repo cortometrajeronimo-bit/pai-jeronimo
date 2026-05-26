@@ -302,13 +302,22 @@ export function CateringClient({
                 <Label>Porciones</Label>
                 <Input
                   type="number"
-                  value={editando.portions_count ?? 0}
-                  onChange={(e) =>
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="0"
+                  value={
+                    editando.portions_count === null ||
+                    editando.portions_count === 0
+                      ? ""
+                      : editando.portions_count
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
                     setEditando({
                       ...editando,
-                      portions_count: Number(e.target.value),
-                    })
-                  }
+                      portions_count: v === "" ? null : Number(v),
+                    });
+                  }}
                 />
               </div>
             </div>

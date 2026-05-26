@@ -3,6 +3,18 @@
     {
       "path": "/api/drive/backup",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/drive/watch",
+      "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/drive/sync-auto",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/notifications/check-urgent",
+      "schedule": "0 12 * * *"
     }
   ]
 }

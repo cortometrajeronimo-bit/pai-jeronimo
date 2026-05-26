@@ -55,7 +55,7 @@ function base64url(input: Buffer | string): string {
   return buf.toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-async function obtenerAccessToken(): Promise<string> {
+export async function obtenerAccessToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
     return cachedToken.token;
   }

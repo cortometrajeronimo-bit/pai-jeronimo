@@ -144,6 +144,13 @@ export type DailyReport = {
   created_at: string;
 };
 
+export type ProducerLogUpdate = {
+  id: string;
+  log_id: string;
+  note: string;
+  created_at: string;
+};
+
 export type ProducerLog = {
   id: string;
   project_id: string;
@@ -151,6 +158,9 @@ export type ProducerLog = {
   category: "general" | "urgente" | "proveedor" | "elenco" | "UAO";
   content: string;
   created_at: string;
+  completed_at: string | null;
+  last_notified_at: string | null;
+  producer_log_updates?: ProducerLogUpdate[];
 };
 
 export type Contract = {
@@ -163,6 +173,17 @@ export type Contract = {
   status: "vigente" | "por_firmar" | "vencido";
   file_url: string | null;
   notes: string | null;
+  created_at: string;
+};
+
+export type ContractTemplate = {
+  id: string;
+  // null = plantilla global del sistema (p.ej. plantillas legales Colombia)
+  project_id: string | null;
+  name: string;
+  type: "locacion" | "talento" | "equipo" | "seguro" | "otro";
+  content: string;
+  is_legal_co?: boolean;
   created_at: string;
 };
 
@@ -229,6 +250,27 @@ export type Incident = {
   created_at: string;
 };
 
+export type ProjectDocument = {
+  id: string;
+  project_id: string;
+  category: "guion" | "guion_tecnico" | "cronograma" | "plan_rodaje" | "otro";
+  title: string;
+  drive_file_id: string;
+  pinned_in_proyecto: boolean;
+  display_order: number;
+  created_at: string;
+};
+
+export type PushSubscription = {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: string;
+};
+
 // Forma exacta esperada por @supabase/ssr para tipar queries
 type Optional<T> = { [K in keyof T]?: T[K] };
 
@@ -250,11 +292,15 @@ export type Database = {
       daily_reports: Tabla<DailyReport>;
       producer_logs: Tabla<ProducerLog>;
       contracts: Tabla<Contract>;
+      contract_templates: Tabla<ContractTemplate>;
       crew_payments: Tabla<CrewPayment>;
       transport: Tabla<Transport>;
       catering: Tabla<Catering>;
       attendance: Tabla<Attendance>;
       incidents: Tabla<Incident>;
+      project_documents: Tabla<ProjectDocument>;
+      producer_log_updates: Tabla<ProducerLogUpdate>;
+      push_subscriptions: Tabla<PushSubscription>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
