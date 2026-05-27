@@ -80,15 +80,33 @@ const VACIO_CASHFLOW = (projectId: string, tipo: "income" | "expense"): CashFlow
   created_at: "",
 });
 
+// Normaliza nombres de categoría para tolerar espacios/mayúsculas/acentos
+// distintos entre lo que se guarda en presupuesto (key) y en cash_flow (texto).
+const norm = (s?: string | null) =>
+  (s ?? "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
 export function PresupuestoClient({
   expenses,
-  movimientosCaja,
+  cashFlow,
   projectId,
 }: {
   expenses: Expense[];
-  movimientosCaja: CashFlow[];
+  cashFlow: CashFlow[];
   projectId: string;
 }) {
+  // Lista visible de "Movimientos de caja reales" (solo no proyectados, top 20)
+  const movimientosCaja = useMemo(
+    () =>
+      cashFlow
+        .filter((m) => !m.is_projected)
+        .slice(0, 20),
+    [cashFlow]
+  );
   const router = useRouter();
   const [filtroCat, setFiltroCat] = useState("");
   const [desde, setDesde] = useState("");
@@ -113,18 +131,36 @@ export function PresupuestoClient({
     });
   }, [expenses, filtroCat, desde, hasta]);
 
+  // Egresos de flujo de caja también alimentan ejecutado/comprometido por
+  // categoría. is_projected=false → ejecutado, is_projected=true → comprometido.
+  const egresosCaja = useMemo(
+    () => cashFlow.filter((m) => m.type === "expense"),
+    [cashFlow]
+  );
+
   const porCategoria = useMemo(() => {
     return CATEGORIAS.map((c) => {
-      // Solo 'ejecutado' cuenta como gasto real
-      const ej = filtrados
+      const keyN = norm(c.key);
+      // Desde expenses (status)
+      const ejExp = filtrados
         .filter((e) => e.category === c.key && e.status === "ejecutado")
         .reduce((acc, e) => acc + Number(e.amount), 0);
-      const comp = filtrados
+      const compExp = filtrados
         .filter((e) => e.category === c.key && e.status === "comprometido")
         .reduce((acc, e) => acc + Number(e.amount), 0);
       const plan = filtrados
         .filter((e) => e.category === c.key && e.status === "planeado")
         .reduce((acc, e) => acc + Number(e.amount), 0);
+      // Desde cash_flow (egresos)
+      const cfDeCat = egresosCaja.filter((m) => norm(m.category) === keyN);
+      const ejCF = cfDeCat
+        .filter((m) => !m.is_projected)
+        .reduce((acc, m) => acc + Number(m.amount), 0);
+      const compCF = cfDeCat
+        .filter((m) => m.is_projected)
+        .reduce((acc, m) => acc + Number(m.amount), 0);
+      const ej = ejExp + ejCF;
+      const comp = compExp + compCF;
       return {
         ...c,
         ejecutado: ej,
@@ -133,7 +169,7 @@ export function PresupuestoClient({
         pct: c.presupuesto > 0 ? Math.round((ej / c.presupuesto) * 100) : 0,
       };
     });
-  }, [filtrados]);
+  }, [filtrados, egresosCaja]);
 
   const ejecutadoTotal = porCategoria.reduce((a, b) => a + b.ejecutado, 0);
   const comprometidoTotal = porCategoria.reduce((a, b) => a + b.comprometido, 0);

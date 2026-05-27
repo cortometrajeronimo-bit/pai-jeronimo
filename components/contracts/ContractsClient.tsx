@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
-import { Plus, Trash2, Pencil, AlertTriangle, ExternalLink, FileText, Wand2, ChevronDown, ChevronUp, Shield, FolderOpen, Link as LinkIcon, Eye, Download, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Trash2, Pencil, AlertTriangle, ExternalLink, FileText, Wand2, ChevronDown, ChevronUp, Shield, FolderOpen, Link as LinkIcon, Eye, Download, Mail, Upload, FileCheck2, Search, CheckCircle2 } from "lucide-react";
 import type { Contract, ContractTemplate, Project } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,15 @@ import {
   generarDesdeTemplate,
   enviarContratoPorEmail,
 } from "@/app/(dashboard)/contracts/actions";
+import {
+  subirPlantillaDOCX,
+  subirContratoTerminado,
+  generarContratosDOCXMasivo,
+  marcarContratoFirmado,
+  obtenerUrlContrato,
+  eliminarContratoConArchivo,
+  eliminarPlantillaDOCX,
+} from "@/app/(dashboard)/contracts/actions-upload";
 import { DEPARTAMENTOS, departamentoDeRol } from "@/lib/departamentos";
 
 const TIPOS: Contract["type"][] = ["locacion", "talento", "equipo", "seguro", "otro"];
@@ -64,8 +74,11 @@ interface Props {
 }
 
 export function ContractsClient({ contracts, templates, crew, driveFiles, projectId, project }: Props) {
+  const router = useRouter();
   const [filtroTipo, setFiltroTipo] = useState<string>("");
   const [filtroEstado, setFiltroEstado] = useState<string>("");
+  const [filtroDeptoLista, setFiltroDeptoLista] = useState<string>("");
+  const [busqueda, setBusqueda] = useState<string>("");
   const [editandoContrato, setEditandoContrato] = useState<Contract | null>(null);
   const [editandoTemplate, setEditandoTemplate] = useState<ContractTemplate | null>(null);
   const [seccionPlantillas, setSeccionPlantillas] = useState(false);
@@ -81,13 +94,61 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
   const [pending, startTransition] = useTransition();
   const [pendingEmail, startEmailTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Estado para upload de plantilla DOCX y de contrato terminado
+  const [uploadPlantillaOpen, setUploadPlantillaOpen] = useState(false);
+  const [uploadContratoOpen, setUploadContratoOpen] = useState(false);
+
+  // Mapa rápido id→crew para resolver departamento desde el contrato
+  const crewById = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; role: string }>();
+    crew.forEach((c) => m.set(c.id, c));
+    return m;
+  }, [crew]);
+
+  // Resuelve el departamento de un contrato: vía crew_member_id (preciso)
+  // o por coincidencia de nombre con el crew como fallback.
+  function deptoDeContrato(c: Contract): string {
+    const cm = c.crew_member_id ? crewById.get(c.crew_member_id) : null;
+    if (cm) return departamentoDeRol(cm.role);
+    // Fallback: extrae "Nombre" del formato "Plantilla — Nombre"
+    const partes = c.name.split(" — ");
+    const posibleNombre = partes[partes.length - 1]?.trim().toLowerCase();
+    if (posibleNombre) {
+      const match = crew.find((m) => m.name.toLowerCase() === posibleNombre);
+      if (match) return departamentoDeRol(match.role);
+    }
+    return "Otros";
+  }
+
+  // Estado visual derivado. Vencido tiene prioridad (es alerta);
+  // luego firmado; luego faltan campos; luego pendiente; resto = borrador.
+  function estadoVisual(c: Contract): "vencido" | "firmado" | "faltan" | "pendiente" | "borrador" {
+    if (c.status === "vencido") return "vencido";
+    if (c.signed_at || c.status === "vigente") return "firmado";
+    if ((c.missing_fields?.length ?? 0) > 0) return "faltan";
+    if (c.status === "por_firmar") return "pendiente";
+    return "borrador";
+  }
 
   const filtrados = useMemo(() =>
     contracts.filter((c) => {
       if (filtroTipo && c.type !== filtroTipo) return false;
-      if (filtroEstado && c.status !== filtroEstado) return false;
+      if (filtroEstado) {
+        const ev = estadoVisual(c);
+        if (filtroEstado === "firmado" && ev !== "firmado") return false;
+        if (filtroEstado === "pendiente" && ev !== "pendiente") return false;
+        if (filtroEstado === "faltan" && ev !== "faltan") return false;
+        if (filtroEstado === "vencido" && ev !== "vencido") return false;
+        if (filtroEstado === "borrador" && ev !== "borrador") return false;
+      }
+      if (filtroDeptoLista && deptoDeContrato(c) !== filtroDeptoLista) return false;
+      if (busqueda) {
+        const q = busqueda.trim().toLowerCase();
+        if (!c.name.toLowerCase().includes(q)) return false;
+      }
       return true;
-    }), [contracts, filtroTipo, filtroEstado]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [contracts, filtroTipo, filtroEstado, filtroDeptoLista, busqueda, crewById]);
 
   const porVencer = useMemo(() =>
     contracts.filter((c) => { const d = diasHasta(c.expiry_date); return d !== null && d >= 0 && d <= 7; }),
@@ -139,8 +200,12 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
     if (!templateSelId) { setError("Selecciona una plantilla"); return; }
     if (crewSelIds.size === 0) { setError("Selecciona al menos un miembro del crew"); return; }
     setError(null); setResultado(null); setAdvertencias({});
+    const tpl = templates.find((t) => t.id === templateSelId);
+    const esDocx = tpl?.source_type === "docx";
     startTransition(async () => {
-      const r = await generarDesdeTemplate(templateSelId, Array.from(crewSelIds), projectId);
+      const r = esDocx
+        ? await generarContratosDOCXMasivo(templateSelId, Array.from(crewSelIds), projectId)
+        : await generarDesdeTemplate(templateSelId, Array.from(crewSelIds), projectId);
       if (r.errores.length > 0) {
         setResultado(`✓ ${r.creados} creados. Errores: ${r.errores.join(", ")}`);
       } else {
@@ -150,6 +215,36 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
         setAdvertencias(r.advertencias);
       }
       setCrewSelIds(new Set());
+    });
+  }
+
+  // Descarga un archivo guardado en Supabase Storage (contratos subidos / DOCX generados)
+  async function descargarArchivoStorage(c: Contract) {
+    if (!c.storage_path) { setError("Este contrato no tiene archivo asociado."); return; }
+    const r = await obtenerUrlContrato("contracts", c.storage_path);
+    if (!r.ok) { setError(r.error); return; }
+    window.open(r.url, "_blank", "noopener");
+  }
+
+  // Alterna estado firmado/pendiente desde la lista
+  function toggleFirmado(c: Contract) {
+    const yaFirmado = !!c.signed_at || c.status === "vigente";
+    startTransition(async () => {
+      const r = await marcarContratoFirmado(c.id, !yaFirmado);
+      if (!r.ok) setError(r.error);
+      else router.refresh();
+    });
+  }
+
+  // Elimina un contrato (con archivo en Storage si existe)
+  function eliminarContratoUnificado(c: Contract) {
+    if (!confirm("¿Eliminar este contrato? Si tiene archivo subido también se borrará.")) return;
+    startTransition(async () => {
+      const r = c.storage_path
+        ? await eliminarContratoConArchivo(c.id)
+        : await eliminarContrato(c.id);
+      if (!("ok" in r) || !r.ok) setError("error" in r ? r.error : "Error eliminando");
+      else router.refresh();
     });
   }
 
@@ -200,7 +295,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
           <CardTitle className="text-base">¿Cómo quieres crear el contrato?</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <button
               onClick={() => abrirCreacion("auto")}
               className="text-left rounded-md border border-acento/60 bg-acento/5 hover:bg-acento/10 p-3 transition-colors"
@@ -208,16 +303,30 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
               <div className="flex items-center gap-2 mb-1">
                 <Shield className="h-4 w-4 text-acento" />
                 <span className="font-semibold text-acento text-sm">
-                  Auto-generar (Ley Colombia)
+                  Auto-generar (Ley CO)
+                </span>
+              </div>
+              <p className="text-xs text-textoSec">
+                Plantilla legal pre-cargada + datos del crew automáticos.
+              </p>
+            </button>
+
+            <button
+              onClick={() => { setError(null); setUploadPlantillaOpen(true); }}
+              className="text-left rounded-md border border-acento/60 bg-acento/5 hover:bg-acento/10 p-3 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Upload className="h-4 w-4 text-acento" />
+                <span className="font-semibold text-acento text-sm">
+                  Subir plantilla .docx
                 </span>
                 <Badge variant="accent" className="text-[10px] ml-auto">
-                  Recomendado
+                  Nuevo
                 </Badge>
               </div>
               <p className="text-xs text-textoSec">
-                Usa una plantilla legal pre-cargada (servicios artísticos,
-                técnicos, cesión derechos, imagen, locación) y rellena los
-                datos del crew automáticamente.
+                Sube tu plantilla con <code className="text-acento">{"{{nombre}}"}</code>,{" "}
+                <code className="text-acento">{"{{cedula}}"}</code>… y se rellenan por crew.
               </p>
             </button>
 
@@ -232,8 +341,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                 </span>
               </div>
               <p className="text-xs text-textoSec">
-                Usa un archivo PDF/DOCX que ya está en la carpeta Drive del
-                proyecto y guárdalo como contrato.
+                Archivo PDF/DOCX ya en la carpeta Drive del proyecto.
               </p>
             </button>
 
@@ -244,12 +352,11 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
               <div className="flex items-center gap-2 mb-1">
                 <LinkIcon className="h-4 w-4 text-acento" />
                 <span className="font-semibold text-sm">
-                  Subir / pegar URL
+                  Pegar URL
                 </span>
               </div>
               <p className="text-xs text-textoSec">
-                Sube el documento a Drive o donde prefieras y pega el enlace
-                aquí para registrarlo manualmente.
+                Registra un enlace externo manualmente.
               </p>
             </button>
           </div>
@@ -319,6 +426,9 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                     >
                       <div className="flex items-center gap-2 flex-wrap">
                         {legal && <Shield className="h-3.5 w-3.5 text-acento shrink-0" />}
+                        {t.source_type === "docx" && (
+                          <FileText className="h-3.5 w-3.5 text-acento shrink-0" />
+                        )}
                         <span className="text-sm font-medium">{t.name}</span>
                         <Badge variant="outline" className="text-xs">{t.type}</Badge>
                         {legal && (
@@ -326,23 +436,35 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                             LEY CO
                           </Badge>
                         )}
+                        {t.source_type === "docx" && (
+                          <Badge variant="accent" className="text-[10px]">
+                            DOCX
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex gap-1">
+                        {!legal && t.source_type !== "docx" && (
+                          <button
+                            onClick={() => { setError(null); setEditandoTemplate(t); }}
+                            className="text-textoSec hover:text-acento p-1"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {!legal && (
-                          <>
-                            <button
-                              onClick={() => { setError(null); setEditandoTemplate(t); }}
-                              className="text-textoSec hover:text-acento p-1"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => { if (confirm("¿Eliminar esta plantilla?")) startTransition(async () => { await eliminarPlantilla(t.id); }); }}
-                              className="text-textoSec hover:text-error p-1"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </>
+                          <button
+                            onClick={() => {
+                              if (!confirm("¿Eliminar esta plantilla?")) return;
+                              startTransition(async () => {
+                                if (t.source_type === "docx") await eliminarPlantillaDOCX(t.id);
+                                else await eliminarPlantilla(t.id);
+                                router.refresh();
+                              });
+                            }}
+                            className="text-textoSec hover:text-error p-1"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -493,19 +615,51 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
         </Card>
       )}
 
-      {/* — Lista de contratos — */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="max-w-[180px]">
-          <option value="">Todos los tipos</option>
-          {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
-        </Select>
-        <Select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="max-w-[180px]">
-          <option value="">Todos los estados</option>
-          {ESTADOS.map((e) => <option key={e} value={e}>{e.replace("_", " ")}</option>)}
-        </Select>
-        <Button onClick={() => { setError(null); setEditandoContrato(VACIO_CONTRATO(projectId)); }} className="ml-auto">
-          <Plus className="h-4 w-4 mr-1" /> Nuevo contrato
-        </Button>
+      {/* — Lista de contratos como dashboard organizador — */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[180px] max-w-[260px]">
+            <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-textoSec" />
+            <Input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre…"
+              className="pl-7 text-sm"
+            />
+          </div>
+          <Select value={filtroDeptoLista} onChange={(e) => setFiltroDeptoLista(e.target.value)} className="max-w-[200px] text-sm">
+            <option value="">Todos los departamentos</option>
+            {DEPARTAMENTOS.map((d) => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="max-w-[160px] text-sm">
+            <option value="">Todos los tipos</option>
+            {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
+          </Select>
+          <Select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="max-w-[180px] text-sm">
+            <option value="">Todos los estados</option>
+            <option value="firmado">Firmado</option>
+            <option value="pendiente">Pendiente firma</option>
+            <option value="faltan">Faltan campos</option>
+            <option value="vencido">Vencido</option>
+            <option value="borrador">Borrador</option>
+          </Select>
+          <div className="ml-auto flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setError(null); setUploadContratoOpen(true); }}
+            >
+              <Upload className="h-4 w-4 mr-1" /> Subir contrato
+            </Button>
+            <Button onClick={() => { setError(null); setEditandoContrato(VACIO_CONTRATO(projectId)); }}>
+              <Plus className="h-4 w-4 mr-1" /> Nuevo contrato
+            </Button>
+          </div>
+        </div>
+        {(busqueda || filtroDeptoLista || filtroTipo || filtroEstado) && (
+          <p className="text-xs text-textoSec">
+            Mostrando {filtrados.length} de {contracts.length} contratos.
+          </p>
+        )}
       </div>
 
       {filtrados.length === 0 ? (
@@ -520,21 +674,57 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
             const dias = diasHasta(c.expiry_date);
             const alerta = dias !== null && dias < 7;
             const vencido = dias !== null && dias < 0;
+            const ev = estadoVisual(c);
+            const depto = deptoDeContrato(c);
+            const tieneArchivo = !!c.storage_path;
+            const esGeneradoTexto = !!c.notes && !c.storage_path;
             return (
-              <Card key={c.id} className={vencido ? "border-error" : alerta ? "border-advertencia" : ""}>
+              <Card
+                key={c.id}
+                className={
+                  ev === "faltan"
+                    ? "border-error"
+                    : vencido
+                    ? "border-error"
+                    : alerta
+                    ? "border-advertencia"
+                    : ev === "firmado"
+                    ? "border-exito/50"
+                    : ""
+                }
+              >
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start gap-2">
                     <div className="min-w-0">
                       <CardTitle className="text-base truncate">{c.name}</CardTitle>
                       <div className="flex gap-1 mt-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">{c.type}</Badge>
-                        <Badge variant={c.status === "vigente" ? "success" : c.status === "vencido" ? "danger" : "warning"} className="text-xs">
-                          {c.status.replace("_", " ")}
-                        </Badge>
+                        <Badge variant="outline" className="text-xs">{depto}</Badge>
+                        {c.origin === "uploaded" && (
+                          <Badge variant="outline" className="text-[10px]">Subido</Badge>
+                        )}
+                        {c.origin === "template_docx" && (
+                          <Badge variant="outline" className="text-[10px]">DOCX</Badge>
+                        )}
+                        {ev === "firmado" && (
+                          <Badge variant="success" className="text-xs">FIRMADO</Badge>
+                        )}
+                        {ev === "pendiente" && (
+                          <Badge variant="warning" className="text-xs">PENDIENTE FIRMA</Badge>
+                        )}
+                        {ev === "faltan" && (
+                          <Badge variant="danger" className="text-xs">FALTAN CAMPOS</Badge>
+                        )}
+                        {ev === "vencido" && (
+                          <Badge variant="danger" className="text-xs">VENCIDO</Badge>
+                        )}
+                        {ev === "borrador" && (
+                          <Badge variant="default" className="text-xs">BORRADOR</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-1 shrink-0 flex-wrap justify-end">
-                      {c.notes && (
+                      {esGeneradoTexto && (
                         <>
                           <button
                             title="Previsualizar PDF"
@@ -559,11 +749,27 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                           </button>
                         </>
                       )}
+                      {tieneArchivo && (
+                        <button
+                          title="Descargar archivo"
+                          onClick={() => descargarArchivoStorage(c)}
+                          className="text-textoSec hover:text-acento p-1"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button
+                        title={ev === "firmado" ? "Marcar como pendiente" : "Marcar como firmado"}
+                        onClick={() => toggleFirmado(c)}
+                        className={`p-1 ${ev === "firmado" ? "text-exito" : "text-textoSec hover:text-exito"}`}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </button>
                       <button onClick={() => setEditandoContrato(c)} className="text-textoSec hover:text-acento p-1">
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => { if (confirm("¿Eliminar?")) startTransition(async () => { await eliminarContrato(c.id); }); }}
+                        onClick={() => eliminarContratoUnificado(c)}
                         className="text-textoSec hover:text-error p-1"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -572,7 +778,19 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                   </div>
                 </CardHeader>
                 <CardContent className="text-sm space-y-1">
-                  {c.sign_date && <p><span className="text-textoSec">Firma:</span> {c.sign_date}</p>}
+                  {ev === "faltan" && (c.missing_fields?.length ?? 0) > 0 && (
+                    <p className="text-xs text-error bg-error/10 border border-error/30 rounded px-2 py-1">
+                      ⚠ Faltan: {c.missing_fields!.join(", ")}. Abre el archivo y completa los espacios marcados con <strong>RELLENAR:</strong>.
+                    </p>
+                  )}
+                  {c.signed_at && (
+                    <p className="text-xs">
+                      <span className="text-textoSec">Firmado:</span> {c.signed_at.slice(0, 10)}
+                    </p>
+                  )}
+                  {c.sign_date && !c.signed_at && (
+                    <p><span className="text-textoSec">Firma:</span> {c.sign_date}</p>
+                  )}
                   {c.expiry_date && (
                     <p className={vencido ? "text-error" : alerta ? "text-advertencia" : ""}>
                       <span className="text-textoSec">Vence:</span> {c.expiry_date}
@@ -585,7 +803,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                   )}
                   {c.file_url && (
                     <a href={c.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-acento hover:underline text-xs">
-                      <ExternalLink className="h-3 w-3" /> Ver archivo
+                      <ExternalLink className="h-3 w-3" /> Ver enlace externo
                     </a>
                   )}
                   {c.notes && <p className="text-xs text-textoSec line-clamp-2">{c.notes}</p>}
@@ -792,6 +1010,25 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
         </Dialog>
       )}
 
+      {/* Modal: Subir plantilla DOCX */}
+      {uploadPlantillaOpen && (
+        <UploadPlantillaModal
+          projectId={projectId}
+          onClose={() => setUploadPlantillaOpen(false)}
+          onDone={() => { setUploadPlantillaOpen(false); router.refresh(); }}
+        />
+      )}
+
+      {/* Modal: Subir contrato terminado */}
+      {uploadContratoOpen && (
+        <UploadContratoModal
+          projectId={projectId}
+          crew={crew}
+          onClose={() => setUploadContratoOpen(false)}
+          onDone={() => { setUploadContratoOpen(false); router.refresh(); }}
+        />
+      )}
+
       {/* Aviso legal */}
       <div className="border-t border-borde pt-4 mt-8">
         <p className="text-xs text-textoSec leading-relaxed">
@@ -799,6 +1036,192 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
         </p>
       </div>
     </div>
+  );
+}
+
+// Modal para subir una plantilla .docx con placeholders {{nombre}}, {{cedula}}…
+function UploadPlantillaModal({
+  projectId,
+  onClose,
+  onDone,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [nombre, setNombre] = useState("");
+  const [tipo, setTipo] = useState<Contract["type"]>("talento");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function submit() {
+    if (!file) { setError("Selecciona un archivo .docx"); return; }
+    if (!nombre.trim()) { setError("Pon un nombre a la plantilla"); return; }
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("name", nombre.trim());
+    fd.append("type", tipo);
+    fd.append("project_id", projectId);
+    startTransition(async () => {
+      const r = await subirPlantillaDOCX(fd);
+      if (!r.ok) setError(r.error);
+      else onDone();
+    });
+  }
+
+  return (
+    <Dialog open onClose={onClose}>
+      <DialogHeader>
+        <DialogTitle>Subir plantilla .docx</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3">
+        <p className="text-xs text-textoSec">
+          Sube un archivo Word con marcadores como{" "}
+          <code className="text-acento">{"{{nombre}}"}</code>,{" "}
+          <code className="text-acento">{"{{cedula}}"}</code>,{" "}
+          <code className="text-acento">{"{{tarifa_diaria}}"}</code>. Cuando un dato falte
+          en el crew, el contrato dirá <strong>RELLENAR: CAMPO</strong> para que lo completes a mano.
+        </p>
+        <div>
+          <Label>Nombre de la plantilla *</Label>
+          <Input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Ej: Contrato talento JERÓNIMO 2026"
+          />
+        </div>
+        <div>
+          <Label>Tipo</Label>
+          <Select value={tipo} onChange={(e) => setTipo(e.target.value as Contract["type"])}>
+            {(["locacion", "talento", "equipo", "seguro", "otro"] as const).map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Archivo .docx *</Label>
+          <Input
+            type="file"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          <p className="text-[10px] text-textoSec mt-1">Máx. 5 MB.</p>
+        </div>
+        {error && <p className="text-sm text-error">{error}</p>}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose} disabled={pending}>Cancelar</Button>
+        <Button onClick={submit} disabled={pending}>
+          {pending ? "Subiendo…" : "Subir plantilla"}
+        </Button>
+      </DialogFooter>
+    </Dialog>
+  );
+}
+
+// Modal para subir un contrato ya terminado (firmado o no), en cualquier formato.
+function UploadContratoModal({
+  projectId,
+  crew,
+  onClose,
+  onDone,
+}: {
+  projectId: string;
+  crew: { id: string; name: string; role: string }[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [nombre, setNombre] = useState("");
+  const [tipo, setTipo] = useState<Contract["type"]>("talento");
+  const [crewId, setCrewId] = useState<string>("");
+  const [yaFirmado, setYaFirmado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function submit() {
+    if (!file) { setError("Selecciona un archivo"); return; }
+    if (!nombre.trim()) { setError("Pon un nombre al contrato"); return; }
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("name", nombre.trim());
+    fd.append("type", tipo);
+    fd.append("project_id", projectId);
+    if (crewId) fd.append("crew_member_id", crewId);
+    if (yaFirmado) fd.append("signed", "true");
+    startTransition(async () => {
+      const r = await subirContratoTerminado(fd);
+      if (!r.ok) setError(r.error);
+      else onDone();
+    });
+  }
+
+  return (
+    <Dialog open onClose={onClose}>
+      <DialogHeader>
+        <DialogTitle>Subir contrato terminado</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3">
+        <p className="text-xs text-textoSec">
+          Sube un contrato ya hecho (firmado o no). Se guarda asociado al crew para
+          mantener todo organizado en un solo lugar. Formatos: .docx, .pdf, .png, .jpg.
+        </p>
+        <div>
+          <Label>Nombre del contrato *</Label>
+          <Input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Ej: Contrato Ana Rangel — firmado"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Tipo</Label>
+            <Select value={tipo} onChange={(e) => setTipo(e.target.value as Contract["type"])}>
+              {(["locacion", "talento", "equipo", "seguro", "otro"] as const).map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Persona del crew (opcional)</Label>
+            <Select value={crewId} onChange={(e) => setCrewId(e.target.value)}>
+              <option value="">— Sin asignar —</option>
+              {crew.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label>Archivo *</Label>
+          <Input
+            type="file"
+            accept=".docx,.pdf,.png,.jpg,.jpeg,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/png,image/jpeg"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          <p className="text-[10px] text-textoSec mt-1">Máx. 10 MB.</p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={yaFirmado}
+            onChange={(e) => setYaFirmado(e.target.checked)}
+            className="accent-acento w-4 h-4"
+          />
+          <span>Este contrato ya está firmado</span>
+          <FileCheck2 className="h-4 w-4 text-textoSec" />
+        </label>
+        {error && <p className="text-sm text-error">{error}</p>}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose} disabled={pending}>Cancelar</Button>
+        <Button onClick={submit} disabled={pending}>
+          {pending ? "Subiendo…" : "Subir contrato"}
+        </Button>
+      </DialogFooter>
+    </Dialog>
   );
 }
 

@@ -12,16 +12,18 @@ export default async function PresupuestoPage() {
 
   const projectId = project?.id ?? "";
 
-  const [{ data: expenses }, { data: movimientosCaja }] = await Promise.all([
+  // Cargamos TODO el cash_flow del proyecto (incluye proyecciones) para que
+  // PresupuestoClient pueda sumar `ejecutado` (is_projected=false) y
+  // `comprometido` (is_projected=true) por categoría. La lista visible
+  // de "Movimientos de caja reales" se filtra en cliente.
+  const [{ data: expenses }, { data: cashFlow }] = await Promise.all([
     supabase.from("expenses").select("*").order("date", { ascending: false }),
     projectId
       ? supabase
           .from("cash_flow")
           .select("*")
           .eq("project_id", projectId)
-          .eq("is_projected", false)
           .order("date", { ascending: false })
-          .limit(20)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -41,7 +43,7 @@ export default async function PresupuestoPage() {
       ) : (
         <PresupuestoClient
           expenses={expenses ?? []}
-          movimientosCaja={movimientosCaja ?? []}
+          cashFlow={cashFlow ?? []}
           projectId={projectId}
         />
       )}

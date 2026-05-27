@@ -174,6 +174,13 @@ export type Contract = {
   file_url: string | null;
   notes: string | null;
   created_at: string;
+  // Añadido en migration 13: distinguir origen y archivar firmados
+  origin?: "auto" | "template_docx" | "uploaded";
+  storage_path?: string | null;
+  mime_type?: string | null;
+  signed_at?: string | null;
+  missing_fields?: string[];
+  crew_member_id?: string | null;
 };
 
 export type ContractTemplate = {
@@ -185,6 +192,9 @@ export type ContractTemplate = {
   content: string;
   is_legal_co?: boolean;
   created_at: string;
+  // Añadido en migration 13: plantillas DOCX subidas
+  source_type?: "text" | "docx";
+  storage_path?: string | null;
 };
 
 export type CrewPayment = {

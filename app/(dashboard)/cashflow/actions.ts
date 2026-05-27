@@ -73,6 +73,8 @@ export async function eliminarCashFlow(id: string): Promise<Resp> {
   const { error } = await supabase.from("cash_flow").delete().eq("id", id);
   if (error) return { ok: false, error: traducirErrorSupabase(error.message) };
   revalidatePath("/cashflow");
+  revalidatePath("/presupuesto");
+  revalidatePath("/dashboard");
   revalidatePath("/proyecto");
   if (cf?.project_id) exportarCashFlowADrive(cf.project_id).catch(console.warn);
   return { ok: true };
@@ -92,6 +94,8 @@ export async function materializarProyeccion(id: string): Promise<Resp> {
     .eq("id", id);
   if (error) return { ok: false, error: traducirErrorSupabase(error.message) };
   revalidatePath("/cashflow");
+  revalidatePath("/presupuesto");
+  revalidatePath("/dashboard");
   if (cf?.project_id) exportarCashFlowADrive(cf.project_id).catch(console.warn);
   return { ok: true };
 }
