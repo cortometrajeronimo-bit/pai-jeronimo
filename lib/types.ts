@@ -12,6 +12,8 @@ export type Project = {
   location: string | null;
   created_by: string | null;
   created_at: string;
+  google_calendar_id: string | null;
+  google_calendar_link: string | null;
 };
 
 export type CrewMember = {
@@ -195,6 +197,10 @@ export type ContractTemplate = {
   // Añadido en migration 13: plantillas DOCX subidas
   source_type?: "text" | "docx";
   storage_path?: string | null;
+  // Añadido en migration 14: si la plantilla es un contrato ya hecho de una
+  // persona base (Ana Rangel), al generar para otros se hace find/replace
+  // de los datos de la persona base por los del crew target.
+  base_crew_member_id?: string | null;
 };
 
 export type CrewPayment = {
@@ -219,10 +225,13 @@ export type Transport = {
   capacity: number | null;
   date: string | null;
   departure_time: string | null;
+  arrival_time: string | null;
   route: string | null;
   crew_assigned: string[];
   notes: string | null;
   created_at: string;
+  allocated_money: number | null;
+  cash_flow_id: string | null;
 };
 
 export type Catering = {

@@ -23,6 +23,7 @@ const SHEETS_API = "https://sheets.googleapis.com/v4";
 const SCOPES = [
   "https://www.googleapis.com/auth/drive",
   "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/calendar",
 ].join(" ");
 
 export type DriveFileLite = {

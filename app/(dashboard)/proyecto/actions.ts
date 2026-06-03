@@ -51,3 +51,68 @@ export async function desanclarDocumento(id: string): Promise<Resp> {
   revalidatePath("/proyecto");
   return { ok: true };
 }
+
+export async function crearCalendarioProyecto(projectId: string): Promise<Resp> {
+  if (!projectId) return { ok: false, error: "ID de proyecto inválido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada. Inicia sesión de nuevo." };
+
+  const { data: project, error: fetchErr } = await supabase
+    .from("projects")
+    .select("name, google_calendar_id")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (fetchErr || !project) {
+    return { ok: false, error: "No se encontró el proyecto." };
+  }
+
+  if (project.google_calendar_id) {
+    return { ok: false, error: "El proyecto ya tiene un calendario de Google asociado." };
+  }
+
+  try {
+    const { crearCalendarioCompartido, sincronizarCallSheetACalendar, sincronizarTransporteACalendar } = await import("@/lib/google-calendar");
+    const { calendarId, shareLink } = await crearCalendarioCompartido(project.name);
+
+    const { error: updateErr } = await supabase
+      .from("projects")
+      .update({
+        google_calendar_id: calendarId,
+        google_calendar_link: shareLink
+      })
+      .eq("id", projectId);
+
+    if (updateErr) {
+      return { ok: false, error: `Error al guardar calendario en DB: ${updateErr.message}` };
+    }
+
+    // Sincronizar retroactivamente llamados y transportes existentes
+    const [{ data: callSheets }, { data: transports }] = await Promise.all([
+      supabase.from("call_sheets").select("*").eq("project_id", projectId),
+      supabase.from("transport").select("*").eq("project_id", projectId),
+    ]);
+
+    if (callSheets && callSheets.length > 0) {
+      for (const cs of callSheets) {
+        await sincronizarCallSheetACalendar(projectId, cs).catch(console.error);
+      }
+    }
+
+    if (transports && transports.length > 0) {
+      for (const t of transports) {
+        await sincronizarTransporteACalendar(projectId, t).catch(console.error);
+      }
+    }
+
+    revalidatePath("/proyecto");
+    revalidatePath("/transport");
+    revalidatePath("/call-sheets");
+
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: `Error al crear el calendario en Google: ${err.message}` };
+  }
+}

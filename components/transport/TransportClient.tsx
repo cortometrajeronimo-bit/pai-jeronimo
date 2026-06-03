@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Plus, Trash2, Pencil, Bus, Clock as ClockIcon, MapPin, User, Calendar } from "lucide-react";
+import { useState, useTransition, useMemo } from "react";
+import { Plus, Trash2, Pencil, Bus, Clock as ClockIcon, MapPin, User, Calendar, Coins } from "lucide-react";
 import type { Transport } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { formatCOP } from "@/lib/utils";
 import {
   guardarTransporte,
   eliminarTransporte,
@@ -25,10 +26,13 @@ const VACIO = (projectId: string): Transport => ({
   capacity: 4,
   date: new Date().toISOString().slice(0, 10),
   departure_time: "06:00",
+  arrival_time: "07:30",
   route: null,
   crew_assigned: [],
   notes: null,
   created_at: "",
+  allocated_money: 0,
+  cash_flow_id: null,
 });
 
 export function TransportClient({
@@ -43,8 +47,22 @@ export function TransportClient({
   const [editando, setEditando] = useState<Transport | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>("Todos");
 
   const nombreDe = (id: string) => crew.find((c) => c.id === id)?.name ?? "—";
+
+  // Extraer las fechas únicas con vehículos programados para el selector
+  const uniqueDates = useMemo(() => {
+    const dates = Array.from(new Set(vehicles.map((v) => v.date).filter(Boolean))) as string[];
+    return dates.sort();
+  }, [vehicles]);
+
+  // Filtrar los vehículos según la fecha seleccionada
+  const filteredVehicles = useMemo(() => {
+    if (selectedDate === "Todos") return vehicles;
+    if (selectedDate === "Sin fecha") return vehicles.filter((v) => !v.date);
+    return vehicles.filter((v) => v.date === selectedDate);
+  }, [vehicles, selectedDate]);
 
   function abrirNuevo() {
     setError(null);
@@ -73,9 +91,11 @@ export function TransportClient({
         capacity: editando.capacity,
         date: editando.date,
         departure_time: editando.departure_time,
+        arrival_time: editando.arrival_time,
         route: editando.route,
         crew_assigned: editando.crew_assigned,
         notes: editando.notes,
+        allocated_money: editando.allocated_money,
       });
       if (!r.ok) setError(r.error ?? "Error al guardar");
       else setEditando(null);
@@ -83,7 +103,7 @@ export function TransportClient({
   }
 
   function eliminar(id: string) {
-    if (!confirm("¿Eliminar este vehículo?")) return;
+    if (!confirm("¿Eliminar este vehículo? Esto también removerá su egreso del flujo de caja si tenía asignado presupuesto.")) return;
     startTransition(async () => {
       await eliminarTransporte(id);
     });
@@ -91,21 +111,66 @@ export function TransportClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={abrirNuevo}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        {/* Selector de Fechas Premium */}
+        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-thin">
+          <span className="text-xs text-textoSec uppercase tracking-wider font-semibold shrink-0">Filtrar:</span>
+          <button
+            onClick={() => setSelectedDate("Todos")}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-all shrink-0 ${
+              selectedDate === "Todos"
+                ? "bg-acento text-black border-acento font-bold shadow-md shadow-acento/20"
+                : "bg-superficie border-borde text-textoSec hover:border-acento/50"
+            }`}
+          >
+            Todos ({vehicles.length})
+          </button>
+          {uniqueDates.map((d) => {
+            const count = vehicles.filter((v) => v.date === d).length;
+            const parts = d.split("-");
+            const formattedDate = parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
+            return (
+              <button
+                key={d}
+                onClick={() => setSelectedDate(d)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-all shrink-0 ${
+                  selectedDate === d
+                    ? "bg-acento text-black border-acento font-bold shadow-md shadow-acento/20"
+                    : "bg-superficie border-borde text-textoSec hover:border-acento/50"
+                }`}
+              >
+                {formattedDate} ({count})
+              </button>
+            );
+          })}
+          {vehicles.some((v) => !v.date) && (
+            <button
+              onClick={() => setSelectedDate("Sin fecha")}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-all shrink-0 ${
+                selectedDate === "Sin fecha"
+                  ? "bg-acento text-black border-acento font-bold shadow-md shadow-acento/20"
+                  : "bg-superficie border-borde text-textoSec hover:border-acento/50"
+              }`}
+            >
+              Sin fecha ({vehicles.filter((v) => !v.date).length})
+            </button>
+          )}
+        </div>
+
+        <Button onClick={abrirNuevo} className="shrink-0">
           <Plus className="h-4 w-4 mr-1" /> Nuevo vehículo
         </Button>
       </div>
 
-      {vehicles.length === 0 ? (
+      {filteredVehicles.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-textoSec">
-            Sin vehículos registrados.
+            No hay vehículos registrados para {selectedDate === "Todos" ? "este proyecto" : selectedDate === "Sin fecha" ? "sin fecha asignada" : `el día ${selectedDate}`}.
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {vehicles.map((v) => {
+          {filteredVehicles.map((v) => {
             const ocupacion = v.crew_assigned.length;
             const cap = v.capacity ?? 0;
             const sobreocupado = cap > 0 && ocupacion > cap;
@@ -144,10 +209,14 @@ export function TransportClient({
                       <span className="font-medium">{v.date}</span>
                     </p>
                   )}
-                  {v.departure_time && (
+                  {(v.departure_time || v.arrival_time) && (
                     <p className="text-sm flex items-center gap-1.5">
                       <ClockIcon className="h-3.5 w-3.5 text-textoSec" />
-                      <span className="text-textoSec">Salida:</span> {v.departure_time}
+                      <span className="text-textoSec">Horario:</span>{" "}
+                      <span>
+                        {v.departure_time || "—"}
+                        {v.arrival_time ? ` → ${v.arrival_time}` : ""}
+                      </span>
                     </p>
                   )}
                   {v.route && (
@@ -155,6 +224,13 @@ export function TransportClient({
                       <MapPin className="h-3.5 w-3.5 text-textoSec" />
                       {v.route}
                     </p>
+                  )}
+                  {v.allocated_money !== null && Number(v.allocated_money) > 0 && (
+                    <div className="text-xs font-bold text-acento bg-acento/10 border border-acento/20 px-2 py-1 rounded w-fit flex items-center gap-1.5 mt-1">
+                      <Coins className="h-3.5 w-3.5 text-acento" />
+                      <span>Presupuesto:</span>
+                      <span>{formatCOP(Number(v.allocated_money))}</span>
+                    </div>
                   )}
                   {v.crew_assigned.length > 0 && (
                     <div className="pt-1">
@@ -172,7 +248,7 @@ export function TransportClient({
                     </div>
                   )}
                   {v.notes && (
-                    <p className="text-sm text-textoSec pt-1">{v.notes}</p>
+                    <p className="text-sm text-textoSec pt-1 whitespace-pre-line">{v.notes}</p>
                   )}
                   <div className="flex gap-2 pt-2 border-t border-borde mt-2">
                     <button
@@ -243,7 +319,8 @@ export function TransportClient({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Fecha</Label>
                 <Input
@@ -251,16 +328,6 @@ export function TransportClient({
                   value={editando.date ?? ""}
                   onChange={(e) =>
                     setEditando({ ...editando, date: e.target.value || null })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Hora salida</Label>
-                <Input
-                  type="time"
-                  value={editando.departure_time ?? ""}
-                  onChange={(e) =>
-                    setEditando({ ...editando, departure_time: e.target.value || null })
                   }
                 />
               </div>
@@ -275,6 +342,55 @@ export function TransportClient({
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Hora salida prevista</Label>
+                <Input
+                  type="time"
+                  value={editando.departure_time ?? ""}
+                  onChange={(e) =>
+                    setEditando({ ...editando, departure_time: e.target.value || null })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Hora llegada prevista</Label>
+                <Input
+                  type="time"
+                  value={editando.arrival_time ?? ""}
+                  onChange={(e) =>
+                    setEditando({ ...editando, arrival_time: e.target.value || null })
+                  }
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Presupuesto del vehículo (COP)</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                placeholder="Ej: 150000"
+                value={
+                  editando.allocated_money === null || editando.allocated_money === 0
+                    ? ""
+                    : editando.allocated_money
+                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEditando({
+                    ...editando,
+                    allocated_money: v === "" ? 0 : Number(v),
+                  });
+                }}
+              />
+              <p className="text-[10px] text-textoSec mt-1">
+                Se registrará automáticamente como un egreso de producción en el flujo de caja y restará del presupuesto disponible.
+              </p>
+            </div>
+
             <div>
               <Label>
                 Crew asignado ({editando.crew_assigned.length}

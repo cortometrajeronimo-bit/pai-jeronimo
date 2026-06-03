@@ -28,6 +28,7 @@ import {
 import { DocsManager } from "@/components/proyecto/DocsManager";
 import type { DocumentoProyecto } from "@/components/proyecto/DocViewer";
 import { PushOptInButton } from "@/components/notifications/PushOptInButton";
+import { CalendarSync } from "@/components/proyecto/CalendarSync";
 
 const FASES = [
   { key: "desarrollo", label: "Desarrollo", inicio: "2026-01-01", fin: "2026-03-31" },
@@ -73,7 +74,7 @@ export default async function ProyectoPage() {
   ] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, name, budget_total, start_date, location, type, status")
+      .select("id, name, budget_total, start_date, location, type, status, google_calendar_id, google_calendar_link")
       .eq("name", "JERÓNIMO")
       .maybeSingle(),
     supabase.from("crew_members").select("*", { count: "exact", head: true }),
@@ -407,8 +408,14 @@ export default async function ProyectoPage() {
         </Card>
       </section>
 
-      {/* Último incidente */}
-      <section className="grid gap-4">
+      {/* Calendario y Último Incidente */}
+      <section className="grid gap-4 md:grid-cols-2">
+        <CalendarSync
+          projectId={project?.id ?? ""}
+          googleCalendarId={project?.google_calendar_id ?? null}
+          googleCalendarLink={project?.google_calendar_link ?? null}
+        />
+
         <Card
           className={
             ultimoIncidente?.type === "grave"
