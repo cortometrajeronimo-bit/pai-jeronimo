@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import type { CallSheet } from "@/lib/types";
 
 export type CallSheetInput = {
   id?: string;
@@ -20,7 +21,7 @@ export async function guardarCallSheet(data: CallSheetInput) {
   const supabase = await createClient();
   const { id, ...rest } = data;
   
-  let resultCallSheet: any = null;
+  let resultCallSheet: CallSheet | null = null;
 
   if (id) {
     const { data: updated, error } = await supabase

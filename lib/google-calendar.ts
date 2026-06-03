@@ -3,10 +3,11 @@
 
 import { obtenerAccessToken, driveDisponible } from "@/lib/google-drive";
 import { createClient } from "@/lib/supabase/server";
+import type { Transport, CallSheet } from "@/lib/types";
 
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
-async function postApi(url: string, body: unknown): Promise<any> {
+async function postApi(url: string, body: unknown): Promise<unknown> {
   const token = await obtenerAccessToken();
   const r = await fetch(url, {
     method: "POST",
@@ -17,7 +18,7 @@ async function postApi(url: string, body: unknown): Promise<any> {
   return r.json();
 }
 
-async function putApi(url: string, body: unknown): Promise<any> {
+async function putApi(url: string, body: unknown): Promise<unknown> {
   const token = await obtenerAccessToken();
   const r = await fetch(url, {
     method: "PUT",
@@ -48,11 +49,11 @@ export async function crearCalendarioCompartido(nombreProyecto: string): Promise
   }
 
   // 1. Crear el calendario secundario
-  const resCalendar = await postApi(`${CALENDAR_API}/calendars`, {
+  const resCalendar = (await postApi(`${CALENDAR_API}/calendars`, {
     summary: `P.A.I. - ${nombreProyecto}`,
     description: `Calendario de Rodaje para el proyecto ${nombreProyecto}, generado por Productor Asistente Inteligente (P.A.I.)`,
     timeZone: "America/Bogota",
-  });
+  })) as { id: string };
 
   const calendarId = resCalendar.id;
 
@@ -63,7 +64,6 @@ export async function crearCalendarioCompartido(nombreProyecto: string): Promise
   });
 
   // 3. Crear el link público para suscribirse
-  // Este link abre Google Calendar en la web y ofrece añadirlo
   const shareLink = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(calendarId)}`;
 
   return { calendarId, shareLink };
@@ -71,8 +71,6 @@ export async function crearCalendarioCompartido(nombreProyecto: string): Promise
 
 /**
  * Limpia y normaliza un UUID para usarlo como Event ID de Google Calendar.
- * Google requiere que el ID de evento sea alfanumérico entre 5 y 1024 caracteres,
- * en minúsculas y sin caracteres especiales (por eso removemos guiones).
  */
 function normalizarEventId(uuid: string): string {
   return uuid.replace(/-/g, "").toLowerCase();
@@ -81,7 +79,7 @@ function normalizarEventId(uuid: string): string {
 /**
  * Sincroniza un transporte a Google Calendar.
  */
-export async function sincronizarTransporteACalendar(projectId: string, transport: any): Promise<void> {
+export async function sincronizarTransporteACalendar(projectId: string, transport: Transport): Promise<void> {
   if (!driveDisponible()) return;
 
   const supabase = await createClient();
@@ -119,12 +117,10 @@ export async function sincronizarTransporteACalendar(projectId: string, transpor
   };
 
   try {
-    // Intentamos hacer PUT (actualización). Si no existe (404), Google Calendar da error,
-    // en cuyo caso hacemos POST (importación) que permite definir el ID del evento.
     await putApi(`${CALENDAR_API}/calendars/${calendarId}/events/${eventId}`, details);
-  } catch (err: any) {
-    if (err.message.includes("404")) {
-      // Usamos el endpoint de import para poder conservar el eventId basado en el UUID
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "";
+    if (errorMsg.includes("404")) {
       await postApi(`${CALENDAR_API}/calendars/${calendarId}/events/import`, details);
     } else {
       console.error("Error sincronizando evento de transporte:", err);
@@ -159,7 +155,7 @@ export async function eliminarEventoCalendar(projectId: string, rawId: string): 
 /**
  * Sincroniza un llamado de rodaje (Call Sheet) a Google Calendar.
  */
-export async function sincronizarCallSheetACalendar(projectId: string, callSheet: any): Promise<void> {
+export async function sincronizarCallSheetACalendar(projectId: string, callSheet: CallSheet): Promise<void> {
   if (!driveDisponible()) return;
 
   const supabase = await createClient();
@@ -202,8 +198,9 @@ export async function sincronizarCallSheetACalendar(projectId: string, callSheet
 
   try {
     await putApi(`${CALENDAR_API}/calendars/${calendarId}/events/${eventId}`, details);
-  } catch (err: any) {
-    if (err.message.includes("404")) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "";
+    if (errorMsg.includes("404")) {
       await postApi(`${CALENDAR_API}/calendars/${calendarId}/events/import`, details);
     } else {
       console.error("Error sincronizando evento de Call Sheet:", err);

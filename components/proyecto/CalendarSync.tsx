@@ -30,8 +30,9 @@ export function CalendarSync({
         } else {
           router.refresh();
         }
-      } catch (err: any) {
-        setError(err.message || "Error inesperado.");
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Error inesperado.";
+        setError(errorMsg);
       }
     });
   }

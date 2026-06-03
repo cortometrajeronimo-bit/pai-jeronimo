@@ -112,7 +112,8 @@ export async function crearCalendarioProyecto(projectId: string): Promise<Resp> 
     revalidatePath("/call-sheets");
 
     return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: `Error al crear el calendario en Google: ${err.message}` };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Error desconocido";
+    return { ok: false, error: `Error al crear el calendario en Google: ${errorMsg}` };
   }
 }

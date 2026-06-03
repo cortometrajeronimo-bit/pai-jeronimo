@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import type { Transport } from "@/lib/types";
 
 export type TransportInput = {
   id?: string;
@@ -85,7 +86,7 @@ export async function guardarTransporte(data: TransportInput) {
     cash_flow_id: finalCashFlowId
   };
 
-  let resultTransport: any = null;
+  let resultTransport: Transport | null = null;
 
   if (id) {
     const { data: updated, error } = await supabase
