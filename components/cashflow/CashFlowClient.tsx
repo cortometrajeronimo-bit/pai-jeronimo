@@ -130,6 +130,12 @@ export function CashFlowClient({
     [reales, proyectados]
   );
 
+  const totalEgresosProyectados = useMemo(() => {
+    return proyectados
+      .filter((m) => m.type === "expense")
+      .reduce((a, b) => a + Number(b.amount), 0);
+  }, [proyectados]);
+
   // Métricas Excel-like
   const metricas = useMemo(() => {
     const egresosReales = reales.filter((m) => m.type === "expense");
@@ -178,6 +184,10 @@ export function CashFlowClient({
       umbralAlerta,
     };
   }, [reales, presupuesto, presupuestoDisponibleProp]);
+
+  const disponibleNeto = useMemo(() => {
+    return metricas.disponible - totalEgresosProyectados;
+  }, [metricas.disponible, totalEgresosProyectados]);
 
   function abrirNuevo(tipo: "income" | "expense", proyectado = false) {
     setError(null);
@@ -259,29 +269,63 @@ export function CashFlowClient({
 
   return (
     <div className="space-y-6">
-      {/* Hero: Presupuesto disponible */}
-      <Card className={metricas.enAlerta ? "border-error" : "border-acento/30"}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2 text-textoSec">
-            {metricas.enAlerta && <AlertTriangle className="h-4 w-4 text-error" />}
-            Presupuesto disponible
+      {/* Hero: Resumen de Caja y Proyecciones */}
+      <Card className={metricas.enAlerta || disponibleNeto < metricas.umbralAlerta ? "border-error" : "border-acento/30"}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingDown className="h-5 w-5 text-acento" />
+            Estado del Presupuesto y Proyecciones
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className={`text-3xl font-bold ${metricas.enAlerta ? "text-error" : "text-acento"}`}>
-            {formatCOP(metricas.disponible)}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {/* Disponible Real */}
+            <div className="space-y-1">
+              <span className="text-xs text-textoSec block">Presupuesto Disponible Actual (Real)</span>
+              <span className={`text-2xl font-bold block ${metricas.enAlerta ? "text-error" : "text-white"}`}>
+                {formatCOP(metricas.disponible)}
+              </span>
+              <span className="text-[10px] text-textoSec block">Dinero real disponible en caja</span>
+            </div>
+
+            {/* Egresos Proyectados */}
+            <div className="space-y-1 border-t border-borde/40 pt-3 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-4">
+              <span className="text-xs text-textoSec block">Egresos Futuros Proyectados</span>
+              <span className="text-2xl font-bold text-amber-400 block">
+                {formatCOP(totalEgresosProyectados)}
+              </span>
+              <span className="text-[10px] text-textoSec block">Transportes y proyecciones de caja</span>
+            </div>
+
+            {/* Disponible Neto */}
+            <div className="space-y-1 border-t border-borde/40 pt-3 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-4">
+              <span className="text-xs text-textoSec block">Presupuesto Disponible Neto</span>
+              <span className={`text-2xl font-bold block ${disponibleNeto < metricas.umbralAlerta ? "text-error" : "text-acento"}`}>
+                {formatCOP(disponibleNeto)}
+              </span>
+              <span className="text-[10px] text-textoSec block">Disponible real descontando proyecciones</span>
+            </div>
           </div>
-          <div className="mt-2 space-y-1">
-            <div className="w-full bg-superficieAlt rounded-full h-2 overflow-hidden">
+
+          <div className="mt-4 space-y-1">
+            <div className="w-full bg-superficieAlt rounded-full h-2 overflow-hidden flex">
               <div
-                className={`h-2 rounded-full transition-all ${metricas.enAlerta ? "bg-error" : "bg-acento"}`}
-                style={{ width: `${Math.min(100, Math.max(0, (metricas.disponible / presupuesto) * 100))}%` }}
+                className={`h-2 transition-all ${disponibleNeto < metricas.umbralAlerta ? "bg-error" : "bg-acento"}`}
+                style={{ width: `${Math.min(100, Math.max(0, (disponibleNeto / presupuesto) * 100))}%` }}
+                title="Porcentaje Neto"
+              />
+              <div
+                className="h-2 bg-amber-400/50 transition-all"
+                style={{
+                  width: `${Math.min(100 - Math.min(100, (disponibleNeto / presupuesto) * 100), (totalEgresosProyectados / presupuesto) * 100)}%`,
+                }}
+                title="Porcentaje Proyectado"
               />
             </div>
-            <p className="text-xs text-textoSec">
-              {((metricas.disponible / presupuesto) * 100).toFixed(1)}% del presupuesto total ({formatCOP(presupuesto)})
-              {metricas.enAlerta && ` · ⚠ bajo el 10%`}
-            </p>
+            <div className="flex justify-between text-xs text-textoSec mt-1">
+              <span>Neto Estimado: {((disponibleNeto / presupuesto) * 100).toFixed(1)}%</span>
+              <span>Presupuesto Total: {formatCOP(presupuesto)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

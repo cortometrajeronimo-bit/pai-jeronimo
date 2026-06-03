@@ -173,7 +173,6 @@ export function PresupuestoClient({
 
   const ejecutadoTotal = porCategoria.reduce((a, b) => a + b.ejecutado, 0);
   const comprometidoTotal = porCategoria.reduce((a, b) => a + b.comprometido, 0);
-  const planeadoTotal = porCategoria.reduce((a, b) => a + b.planeado, 0);
   const pctTotal = Math.round((ejecutadoTotal / TOTAL) * 100);
   const disponible = TOTAL - ejecutadoTotal - comprometidoTotal;
   const alerta = pctTotal > 80;
@@ -267,75 +266,72 @@ export function PresupuestoClient({
     <div className="space-y-6">
       {/* Cards resumen */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {/* Card 1: Presupuesto Total */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-textoSec">Total</CardTitle>
+            <CardTitle className="text-sm text-textoSec">Presupuesto Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatCOP(TOTAL)}</p>
+            <p className="text-2xl font-bold text-white">{formatCOP(TOTAL)}</p>
+            <p className="text-[10px] text-textoSec mt-1">Total planificado</p>
           </CardContent>
         </Card>
-        <Card>
+
+        {/* Card 2: Ejecutado (Real) */}
+        <Card className={alerta ? "border-error/40" : "border-acento/20"}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-textoSec">Ejecutado</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm text-textoSec flex items-center gap-1.5">
+                {alerta && <AlertTriangle className="h-4 w-4 text-error" />}
+                Ejecutado (Real)
+              </CardTitle>
+              <Badge variant={alerta ? "danger" : "accent"} className="text-[10px] font-bold">
+                {pctTotal}%
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-acento">
+            <p className={`text-2xl font-bold ${alerta ? "text-error" : "text-acento"}`}>
               {formatCOP(ejecutadoTotal)}
             </p>
-            <p className="text-[10px] text-textoSec mt-1">solo gastos reales</p>
+            <p className="text-[10px] text-textoSec mt-1">Egresos reales pagados</p>
           </CardContent>
         </Card>
+
+        {/* Card 3: Proyectado / Comprometido */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-textoSec">Comprometido</CardTitle>
+            <CardTitle className="text-sm text-textoSec">Proyectado / Comprometido</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-amber-400">
               {formatCOP(comprometidoTotal)}
             </p>
-            <p className="text-[10px] text-textoSec mt-1">
-              aprobado, sin pagar
-            </p>
+            <p className="text-[10px] text-textoSec mt-1">Egresos futuros y comprometidos</p>
           </CardContent>
         </Card>
+
+        {/* Card 4: Disponible Actual (Real) */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-textoSec">Disponible</CardTitle>
+            <CardTitle className="text-sm text-textoSec">Disponible Actual (Real)</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatCOP(disponible)}</p>
-            {planeadoTotal > 0 && (
-              <p className="text-[10px] text-textoSec mt-1">
-                + {formatCOP(planeadoTotal)} planeado
-              </p>
-            )}
+            <p className="text-2xl font-bold text-white">{formatCOP(TOTAL - ejecutadoTotal)}</p>
+            <p className="text-[10px] text-textoSec mt-1">Caja libre real en este momento</p>
           </CardContent>
         </Card>
-        <Card className={alerta ? "border-error" : ""}>
+
+        {/* Card 5: Disponible Neto */}
+        <Card className={disponible < TOTAL * 0.1 ? "border-error/40" : ""}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-textoSec flex items-center gap-1">
-              {alerta ? (
-                <AlertTriangle className="h-4 w-4 text-error" />
-              ) : (
-                <TrendingUp className="h-4 w-4 text-acento" />
-              )}
-              % Ejecutado
-            </CardTitle>
+            <CardTitle className="text-sm text-textoSec">Disponible Neto</CardTitle>
           </CardHeader>
           <CardContent>
-            <p
-              className={`text-2xl font-bold ${
-                alerta ? "text-error" : "text-acento"
-              }`}
-            >
-              {pctTotal}%
+            <p className={`text-2xl font-bold ${disponible < TOTAL * 0.1 ? "text-error" : "text-white"}`}>
+              {formatCOP(disponible)}
             </p>
-            {alerta && (
-              <p className="text-xs text-error mt-1">
-                Atención: superaste el 80% del presupuesto
-              </p>
-            )}
+            <p className="text-[10px] text-textoSec mt-1">Restando comprometido y proyecciones</p>
           </CardContent>
         </Card>
       </div>

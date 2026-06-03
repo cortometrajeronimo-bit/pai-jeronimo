@@ -83,15 +83,21 @@ export async function sincronizarTransporteACalendar(projectId: string, transpor
   if (!driveDisponible()) return;
 
   const supabase = await createClient();
-  // Obtener el ID del calendario del proyecto
+  // Obtener el ID del calendario y flag de sincronización del proyecto
   const { data: proj } = await supabase
     .from("projects")
-    .select("google_calendar_id")
+    .select("google_calendar_id, sync_transports")
     .eq("id", projectId)
     .maybeSingle();
 
   const calendarId = proj?.google_calendar_id;
   if (!calendarId) return;
+
+  // Si la sincronización está deshabilitada, eliminar el evento y salir
+  if (!proj.sync_transports) {
+    await eliminarEventoCalendar(projectId, transport.id);
+    return;
+  }
 
   const eventId = normalizarEventId(transport.id);
   const startHour = transport.departure_time || "06:00";
@@ -100,6 +106,21 @@ export async function sincronizarTransporteACalendar(projectId: string, transpor
 
   const startISO = `${dateStr}T${startHour}:00-05:00`;
   const endISO = `${dateStr}T${endHour}:00-05:00`;
+
+  // Obtener correos de tripulantes asignados
+  let attendees: { email: string }[] = [];
+  if (transport.crew_assigned && transport.crew_assigned.length > 0) {
+    const { data: crewData } = await supabase
+      .from("crew_members")
+      .select("email")
+      .in("id", transport.crew_assigned);
+    if (crewData) {
+      attendees = crewData
+        .map(c => c.email)
+        .filter((email): email is string => !!email)
+        .map(email => ({ email }));
+    }
+  }
 
   const details = {
     id: eventId,
@@ -114,16 +135,25 @@ export async function sincronizarTransporteACalendar(projectId: string, transpor
     ].join("\n"),
     start: { dateTime: startISO, timeZone: "America/Bogota" },
     end: { dateTime: endISO, timeZone: "America/Bogota" },
+    attendees,
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: "email", minutes: 1440 },
+        { method: "popup", minutes: 120 }
+      ]
+    }
   };
 
   try {
-    await putApi(`${CALENDAR_API}/calendars/${calendarId}/events/${eventId}`, details);
+    await putApi(`${CALENDAR_API}/calendars/${calendarId}/events/${eventId}?sendUpdates=all`, details);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "";
     if (errorMsg.includes("404")) {
-      await postApi(`${CALENDAR_API}/calendars/${calendarId}/events/import`, details);
+      await postApi(`${CALENDAR_API}/calendars/${calendarId}/events/import?sendUpdates=all`, details);
     } else {
       console.error("Error sincronizando evento de transporte:", err);
+      throw err;
     }
   }
 }
@@ -161,12 +191,18 @@ export async function sincronizarCallSheetACalendar(projectId: string, callSheet
   const supabase = await createClient();
   const { data: proj } = await supabase
     .from("projects")
-    .select("google_calendar_id")
+    .select("google_calendar_id, sync_call_sheets")
     .eq("id", projectId)
     .maybeSingle();
 
   const calendarId = proj?.google_calendar_id;
   if (!calendarId) return;
+
+  // Si la sincronización está deshabilitada, eliminar el evento y salir
+  if (!proj.sync_call_sheets) {
+    await eliminarEventoCalendar(projectId, callSheet.id);
+    return;
+  }
 
   const eventId = normalizarEventId(callSheet.id);
   const startHour = callSheet.call_time || "06:00";
@@ -181,6 +217,21 @@ export async function sincronizarCallSheetACalendar(projectId: string, callSheet
   const endHourStr = `${endH.toString().padStart(2, "0")}:${(m || 0).toString().padStart(2, "0")}`;
   const endISO = `${dateStr}T${endHourStr}:00-05:00`;
 
+  // Obtener correos de tripulantes asignados
+  let attendees: { email: string }[] = [];
+  if (callSheet.crew_ids && callSheet.crew_ids.length > 0) {
+    const { data: crewData } = await supabase
+      .from("crew_members")
+      .select("email")
+      .in("id", callSheet.crew_ids);
+    if (crewData) {
+      attendees = crewData
+        .map(c => c.email)
+        .filter((email): email is string => !!email)
+        .map(email => ({ email }));
+    }
+  }
+
   const details = {
     id: eventId,
     summary: `🎬 Llamado de Rodaje: JERÓNIMO`,
@@ -194,16 +245,25 @@ export async function sincronizarCallSheetACalendar(projectId: string, callSheet
     ].join("\n"),
     start: { dateTime: startISO, timeZone: "America/Bogota" },
     end: { dateTime: endISO, timeZone: "America/Bogota" },
+    attendees,
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: "email", minutes: 1440 },
+        { method: "popup", minutes: 120 }
+      ]
+    }
   };
 
   try {
-    await putApi(`${CALENDAR_API}/calendars/${calendarId}/events/${eventId}`, details);
+    await putApi(`${CALENDAR_API}/calendars/${calendarId}/events/${eventId}?sendUpdates=all`, details);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "";
     if (errorMsg.includes("404")) {
-      await postApi(`${CALENDAR_API}/calendars/${calendarId}/events/import`, details);
+      await postApi(`${CALENDAR_API}/calendars/${calendarId}/events/import?sendUpdates=all`, details);
     } else {
       console.error("Error sincronizando evento de Call Sheet:", err);
+      throw err;
     }
   }
 }

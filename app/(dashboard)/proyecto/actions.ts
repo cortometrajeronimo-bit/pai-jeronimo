@@ -81,7 +81,9 @@ export async function crearCalendarioProyecto(projectId: string): Promise<Resp> 
       .from("projects")
       .update({
         google_calendar_id: calendarId,
-        google_calendar_link: shareLink
+        google_calendar_link: shareLink,
+        sync_transports: true,
+        sync_call_sheets: true
       })
       .eq("id", projectId);
 
@@ -115,5 +117,59 @@ export async function crearCalendarioProyecto(projectId: string): Promise<Resp> 
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Error desconocido";
     return { ok: false, error: `Error al crear el calendario en Google: ${errorMsg}` };
+  }
+}
+
+export async function actualizarConfiguracionCalendario(
+  projectId: string,
+  config: { sync_transports: boolean; sync_call_sheets: boolean }
+): Promise<Resp> {
+  if (!projectId) return { ok: false, error: "ID de proyecto inválido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sesión expirada. Inicia sesión de nuevo." };
+
+  const { error: updateErr } = await supabase
+    .from("projects")
+    .update({
+      sync_transports: config.sync_transports,
+      sync_call_sheets: config.sync_call_sheets,
+    })
+    .eq("id", projectId);
+
+  if (updateErr) {
+    return { ok: false, error: `Error al guardar configuración en DB: ${updateErr.message}` };
+  }
+
+  try {
+    const { sincronizarCallSheetACalendar, sincronizarTransporteACalendar } = await import("@/lib/google-calendar");
+
+    // Recupere todos los transportes y llamados
+    const [{ data: callSheets }, { data: transports }] = await Promise.all([
+      supabase.from("call_sheets").select("*").eq("project_id", projectId),
+      supabase.from("transport").select("*").eq("project_id", projectId),
+    ]);
+
+    if (callSheets && callSheets.length > 0) {
+      for (const cs of callSheets) {
+        await sincronizarCallSheetACalendar(projectId, cs);
+      }
+    }
+
+    if (transports && transports.length > 0) {
+      for (const t of transports) {
+        await sincronizarTransporteACalendar(projectId, t);
+      }
+    }
+
+    revalidatePath("/proyecto");
+    revalidatePath("/transport");
+    revalidatePath("/call-sheets");
+
+    return { ok: true };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Error desconocido";
+    return { ok: false, error: `Error al sincronizar cambios: ${errorMsg}` };
   }
 }

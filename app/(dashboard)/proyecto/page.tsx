@@ -74,7 +74,7 @@ export default async function ProyectoPage() {
   ] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, name, budget_total, start_date, location, type, status, google_calendar_id, google_calendar_link")
+      .select("id, name, budget_total, start_date, location, type, status, google_calendar_id, google_calendar_link, sync_transports, sync_call_sheets")
       .eq("name", "JERÓNIMO")
       .maybeSingle(),
     supabase.from("crew_members").select("*", { count: "exact", head: true }),
@@ -414,6 +414,8 @@ export default async function ProyectoPage() {
           projectId={project?.id ?? ""}
           googleCalendarId={project?.google_calendar_id ?? null}
           googleCalendarLink={project?.google_calendar_link ?? null}
+          syncTransports={project?.sync_transports ?? true}
+          syncCallSheets={project?.sync_call_sheets ?? true}
         />
 
         <Card

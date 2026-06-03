@@ -5,19 +5,25 @@ import { useRouter } from "next/navigation";
 import { Calendar, Link as LinkIcon, RefreshCw, Check, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { crearCalendarioProyecto } from "@/app/(dashboard)/proyecto/actions";
+import { crearCalendarioProyecto, actualizarConfiguracionCalendario } from "@/app/(dashboard)/proyecto/actions";
 
 export function CalendarSync({
   projectId,
   googleCalendarId,
   googleCalendarLink,
+  syncTransports: initialSyncTransports,
+  syncCallSheets: initialSyncCallSheets,
 }: {
   projectId: string;
   googleCalendarId: string | null;
   googleCalendarLink: string | null;
+  syncTransports: boolean;
+  syncCallSheets: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [syncTransports, setSyncTransports] = useState(initialSyncTransports);
+  const [syncCallSheets, setSyncCallSheets] = useState(initialSyncCallSheets);
   const router = useRouter();
 
   function iniciarCreacion() {
@@ -37,11 +43,46 @@ export function CalendarSync({
     });
   }
 
+  function cambiarPreferencia(tipo: "transports" | "call_sheets", checked: boolean) {
+    setError(null);
+    const prevTransports = syncTransports;
+    const prevCallSheets = syncCallSheets;
+
+    if (tipo === "transports") {
+      setSyncTransports(checked);
+    } else {
+      setSyncCallSheets(checked);
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await actualizarConfiguracionCalendario(projectId, {
+          sync_transports: tipo === "transports" ? checked : prevTransports,
+          sync_call_sheets: tipo === "call_sheets" ? checked : prevCallSheets,
+        });
+
+        if (!res.ok) {
+          setError(res.error || "No se pudo guardar la preferencia.");
+          if (tipo === "transports") setSyncTransports(prevTransports);
+          else setSyncCallSheets(prevCallSheets);
+        } else {
+          router.refresh();
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Error de red.";
+        setError(errorMsg);
+        if (tipo === "transports") setSyncTransports(prevTransports);
+        else setSyncCallSheets(prevCallSheets);
+      }
+    });
+  }
+
+  const embedUrl = googleCalendarId
+    ? `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(googleCalendarId)}&ctz=America%2FBogota&mode=AGENDA&wkst=2&bgcolor=%230a0a0a`
+    : "";
+
   // Si ya tiene el calendario creado
   if (googleCalendarId && googleCalendarLink) {
-    // Generar el iframe URL de inserción
-    const embedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(googleCalendarId)}&ctz=America%2FBogota&mode=AGENDA&wkst=2&bgcolor=%230a0a0a`;
-
     return (
       <Card className="border-acento/20 bg-superficieAlt/40">
         <CardHeader className="pb-3">
@@ -83,6 +124,67 @@ export function CalendarSync({
             </Button>
           </div>
 
+          {/* Toggles de Sincronización Selectiva */}
+          <div className="border-t border-borde/40 pt-4 mt-2 space-y-3">
+            <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
+              Configuración de Sincronización Selectiva
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-borde bg-superficieAlt/20 cursor-pointer hover:bg-superficieAlt/40 transition-colors">
+                <input
+                  type="checkbox"
+                  disabled={pending}
+                  checked={syncCallSheets}
+                  onChange={(e) => cambiarPreferencia("call_sheets", e.target.checked)}
+                  className="rounded border-borde bg-superficie text-acento focus:ring-acento/50 h-4 w-4 mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-white">Sincronizar Llamados</p>
+                  <p className="text-xs text-textoSec">Eventos de Call Sheets</p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-borde bg-superficieAlt/20 cursor-pointer hover:bg-superficieAlt/40 transition-colors">
+                <input
+                  type="checkbox"
+                  disabled={pending}
+                  checked={syncTransports}
+                  onChange={(e) => cambiarPreferencia("transports", e.target.checked)}
+                  className="rounded border-borde bg-superficie text-acento focus:ring-acento/50 h-4 w-4 mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-white">Sincronizar Transportes</p>
+                  <p className="text-xs text-textoSec">Eventos de vehículos y rutas</p>
+                </div>
+              </label>
+            </div>
+            {pending && (
+              <p className="text-xs text-acento flex items-center gap-1.5 animate-pulse mt-1">
+                <RefreshCw className="h-3 w-3 animate-spin" /> Guardando preferencias y sincronizando eventos...
+              </p>
+            )}
+          </div>
+
+          {error && (
+            <div className="flex flex-col gap-2 text-xs text-error bg-error/10 border border-error/20 p-3 rounded mt-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+              {error.includes("Google Calendar API has not been used") && (
+                <div className="pt-1">
+                  <Button
+                    onClick={() => window.open("https://console.developers.google.com/apis/library/calendar.googleapis.com?project=265049982046", "_blank")}
+                    size="sm"
+                    className="bg-error text-white hover:bg-error/90 font-bold text-xs"
+                  >
+                    Activar API en Google Console
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="rounded-lg border border-borde/60 bg-superficie overflow-hidden mt-3 h-[250px]">
             <iframe
               src={embedUrl}
@@ -117,9 +219,22 @@ export function CalendarSync({
         </p>
 
         {error && (
-          <div className="flex items-center gap-2 text-xs text-error bg-error/10 border border-error/20 p-2.5 rounded">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
+          <div className="flex flex-col gap-2 text-xs text-error bg-error/10 border border-error/20 p-3 rounded mt-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+            {error.includes("Google Calendar API has not been used") && (
+              <div className="pt-1">
+                <Button
+                  onClick={() => window.open("https://console.developers.google.com/apis/library/calendar.googleapis.com?project=265049982046", "_blank")}
+                  size="sm"
+                  className="bg-error text-white hover:bg-error/90 font-bold text-xs"
+                >
+                  Activar API en Google Console
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

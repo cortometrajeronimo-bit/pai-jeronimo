@@ -52,7 +52,7 @@ export async function guardarTransporte(data: TransportInput) {
       type: "expense" as const,
       amount: money,
       category: "produccion", // Todos los transportes van a producción
-      is_projected: false,
+      is_projected: true,
       notes: `Presupuesto asignado al vehículo: ${rest.vehicle_name}. Sincronizado automáticamente.`
     };
 

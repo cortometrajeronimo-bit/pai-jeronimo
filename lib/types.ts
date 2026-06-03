@@ -14,6 +14,8 @@ export type Project = {
   created_at: string;
   google_calendar_id: string | null;
   google_calendar_link: string | null;
+  sync_transports: boolean;
+  sync_call_sheets: boolean;
 };
 
 export type CrewMember = {
