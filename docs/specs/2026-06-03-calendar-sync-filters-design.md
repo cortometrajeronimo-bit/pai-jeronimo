@@ -49,14 +49,32 @@ En [app/(dashboard)/transport/actions.ts](file:///c:/Users/danielito/Desktop/AGE
 - Modificar el payload de inserción/edición de `cash_flow` para poner `is_projected: true` en lugar de `false`.
 - Los gastos de vehículos ahora son proyecciones.
 
-### B. Control de Sincronización en Google Calendar
+### B. Control de Sincronización, Invitaciones y Alertas en Google Calendar
 En [lib/google-calendar.ts](file:///c:/Users/danielito/Desktop/AGENTES/P.A.I/pai-jeronimo/lib/google-calendar.ts):
-- En `sincronizarTransporteACalendar`:
-  1. Consultar `google_calendar_id` y `sync_transports` del proyecto.
-  2. Si `sync_transports` es `false`, llamar a `eliminarEventoCalendar` para remover el evento si ya existía y salir.
-- En `sincronizarCallSheetACalendar`:
-  1. Consultar `google_calendar_id` y `sync_call_sheets` del proyecto.
-  2. Si `sync_call_sheets` es `false`, llamar a `eliminarEventoCalendar` para remover el evento si ya existía y salir.
+- En `sincronizarTransporteACalendar` y `sincronizarCallSheetACalendar`:
+  1. Consultar `google_calendar_id`, `sync_transports` y `sync_call_sheets` del proyecto.
+  2. Si la sincronización está deshabilitada para ese módulo, llamar a `eliminarEventoCalendar` y salir.
+  3. **Recordatorios de Evento**: Configurar en el payload del evento el campo `reminders` para enviar notificaciones automáticas (ej. un correo 24 horas antes y una notificación popup 2 horas antes):
+     ```json
+     "reminders": {
+       "useDefault": false,
+       "overrides": [
+         { "method": "email", "minutes": 1440 },
+         { "method": "popup", "minutes": 120 }
+       ]
+     }
+     ```
+  4. **Invitados Vinculados (Attendees)**:
+     * Para transportes: obtener de la base de datos los emails de los miembros del crew asignados en `transport.crew_assigned`.
+     * Para llamados: obtener los emails de los miembros asignados en `callSheet.crew_ids`.
+     * Mapear estos emails y agregarlos en la sección `attendees` del evento de Google:
+       ```json
+       "attendees": [
+         { "email": "miembro1@gmail.com" },
+         { "email": "miembro2@gmail.com" }
+       ]
+       ```
+     * Añadir el parámetro query `sendUpdates=all` en la llamada a la API de Google (`PUT` y `POST`) para que Google Calendar envíe el correo de invitación y cree el evento automáticamente en sus calendarios personales.
 
 ### C. Acción para Actualizar Configuración
 En [app/(dashboard)/proyecto/actions.ts](file:///c:/Users/danielito/Desktop/AGENTES/P.A.I/pai-jeronimo/app/(dashboard)/proyecto/actions.ts):
