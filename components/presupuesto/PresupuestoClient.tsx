@@ -43,11 +43,11 @@ import {
 
 const CATEGORIAS = [
   { key: "honorarios", label: "Honorarios y Equipo Técnico", presupuesto: 4_500_000, color: "#d4af37" },
-  { key: "transportes", label: "Transportes", presupuesto: 1_900_000, color: "#a8861e" },
+  { key: "transportes", label: "Transportes", presupuesto: 1_832_000, color: "#a8861e" },
   { key: "catering", label: "Catering", presupuesto: 1_500_000, color: "#e6c558" },
   { key: "arte-vestuario", label: "Arte y Vestuario", presupuesto: 1_200_000, color: "#9c7a1c" },
   { key: "materiales-locaciones", label: "Materiales y Locaciones", presupuesto: 1_132_500, color: "#b8962e" },
-  { key: "imprevistos", label: "Imprevistos", presupuesto: 68_000, color: "#806010" },
+  { key: "imprevistos", label: "Imprevistos", presupuesto: 136_000, color: "#806010" },
 ];
 
 const MAPA_CASHFLOW: Record<string, string> = {
