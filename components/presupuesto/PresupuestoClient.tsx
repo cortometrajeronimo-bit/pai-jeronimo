@@ -19,8 +19,6 @@ import {
   Trash2,
   Pencil,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -31,7 +29,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogHeader,
@@ -43,7 +40,6 @@ import {
   guardarExpense,
   eliminarExpense,
 } from "@/app/(dashboard)/presupuesto/actions";
-import { guardarCashFlow } from "@/app/(dashboard)/cashflow/actions";
 
 const CATEGORIAS = [
   { key: "honorarios", label: "Honorarios y Equipo Técnico", presupuesto: 4_500_000, color: "#d4af37" },
@@ -69,18 +65,7 @@ const VACIO = (projectId: string): Expense => ({
   created_at: "",
 });
 
-const VACIO_CASHFLOW = (projectId: string, tipo: "income" | "expense"): CashFlow => ({
-  id: "",
-  project_id: projectId,
-  date: new Date().toISOString().slice(0, 10),
-  concept: "",
-  type: tipo,
-  amount: 0,
-  category: null,
-  is_projected: false,
-  notes: null,
-  created_at: "",
-});
+
 
 // Normaliza nombres de categoría para tolerar espacios/mayúsculas/acentos
 // distintos entre lo que se guarda en presupuesto (key) y en cash_flow (texto).
@@ -114,16 +99,11 @@ export function PresupuestoClient({
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [editando, setEditando] = useState<Expense | null>(null);
-  const [editandoCaja, setEditandoCaja] = useState<CashFlow | null>(null);
-  const [seccionCaja, setSeccionCaja] = useState(true);
   const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [pendingCaja, startCajaTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [errorCaja, setErrorCaja] = useState<string | null>(null);
   // Alertas de duplicado cruzado
   const [dupCaja, setDupCaja] = useState<CashFlow | null>(null);
-  const [dupExpense, setDupExpense] = useState<Expense | null>(null);
 
   const filtrados = useMemo(() => {
     return expenses.filter((e) => {
@@ -215,47 +195,8 @@ export function PresupuestoClient({
     });
   };
 
-  const onGuardarCaja = (m: CashFlow, confirmar = false) => {
-    setErrorCaja(null);
-    if (!m.concept.trim() || m.amount <= 0) {
-      setErrorCaja("Concepto y monto son obligatorios"); return;
-    }
-    // Verificar duplicado cruzado: solo registros nuevos
-    if (!m.id && !confirmar) {
-      const dup = expenses.find(
-        (e) =>
-          e.concept.trim().toLowerCase() === m.concept.trim().toLowerCase() &&
-          Number(e.amount) === Number(m.amount)
-      );
-      if (dup) {
-        setDupExpense(dup);
-        return;
-      }
-    }
-    setDupExpense(null);
-    startCajaTransition(async () => {
-      try {
-        const res = await guardarCashFlow({
-          id: m.id || undefined,
-          project_id: projectId,
-          date: m.date,
-          concept: m.concept,
-          type: m.type,
-          amount: Number(m.amount),
-          category: m.category,
-          is_projected: false,
-          notes: m.notes,
-        });
-        if (!res.ok) setErrorCaja(res.error ?? "Error guardando");
-        else {
-          setEditandoCaja(null);
-          router.refresh();
-        }
-      } catch {
-        setErrorCaja("Error inesperado. Intenta de nuevo.");
-      }
-    });
-  };
+
+
 
   const onEliminar = (id: string) => {
     if (!confirm("¿Eliminar este gasto?")) return;

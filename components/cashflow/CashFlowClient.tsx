@@ -22,6 +22,8 @@ import {
   Download,
   CheckCircle2,
   Clock,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import type { CashFlow, Expense } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
