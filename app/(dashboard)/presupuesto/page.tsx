@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { PresupuestoClient } from "@/components/presupuesto/PresupuestoClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function PresupuestoPage() {
   const supabase = await createClient();
 

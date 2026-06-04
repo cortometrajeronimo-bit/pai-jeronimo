@@ -30,6 +30,8 @@ import type { DocumentoProyecto } from "@/components/proyecto/DocViewer";
 import { PushOptInButton } from "@/components/notifications/PushOptInButton";
 import { CalendarSync } from "@/components/proyecto/CalendarSync";
 
+export const dynamic = "force-dynamic";
+
 const FASES = [
   { key: "desarrollo", label: "Desarrollo", inicio: "2026-01-01", fin: "2026-03-31" },
   { key: "pre", label: "Pre-producción", inicio: "2026-04-01", fin: "2026-06-05" },

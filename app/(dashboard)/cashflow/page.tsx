@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { CashFlowClient } from "@/components/cashflow/CashFlowClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function CashFlowPage() {
   const supabase = await createClient();
 

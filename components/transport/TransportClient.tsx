@@ -21,9 +21,9 @@ type CrewLite = { id: string; name: string; role: string };
 function getPicoYPlacaInfo(vehicleName: string, dateString: string | null) {
   if (!dateString) return null;
   // Extraer el último dígito del nombre/placa (ej: "Nissan March (HWS 637)")
-  const match = vehicleName.match(/(\d)\D*$/);
-  if (!match) return null;
-  const lastDigit = parseInt(match[1], 10);
+  const digits = vehicleName.match(/\d/g);
+  if (!digits || digits.length === 0) return null;
+  const lastDigit = parseInt(digits[digits.length - 1], 10);
   
   const d = new Date(dateString + "T12:00:00");
   const day = d.getDay();
