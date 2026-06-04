@@ -46,10 +46,12 @@ import {
 import { guardarCashFlow } from "@/app/(dashboard)/cashflow/actions";
 
 const CATEGORIAS = [
-  { key: "desarrollo", label: "Desarrollo", presupuesto: 318_000, color: "#d4af37" },
-  { key: "pre-produccion", label: "Pre-producción", presupuesto: 572_500, color: "#a8861e" },
-  { key: "produccion", label: "Producción", presupuesto: 5_910_000, color: "#e6c558" },
-  { key: "post-produccion", label: "Post-producción", presupuesto: 3_500_000, color: "#9c7a1c" },
+  { key: "honorarios", label: "Honorarios y Equipo Técnico", presupuesto: 4_500_000, color: "#d4af37" },
+  { key: "transportes", label: "Transportes", presupuesto: 1_900_000, color: "#a8861e" },
+  { key: "catering", label: "Catering", presupuesto: 1_500_000, color: "#e6c558" },
+  { key: "arte-vestuario", label: "Arte y Vestuario", presupuesto: 1_200_000, color: "#9c7a1c" },
+  { key: "materiales-locaciones", label: "Materiales y Locaciones", presupuesto: 1_132_500, color: "#b8962e" },
+  { key: "imprevistos", label: "Imprevistos", presupuesto: 68_000, color: "#806010" },
 ];
 
 const ESTADOS = ["planeado", "comprometido", "ejecutado", "cancelado"];
@@ -114,6 +116,7 @@ export function PresupuestoClient({
   const [editando, setEditando] = useState<Expense | null>(null);
   const [editandoCaja, setEditandoCaja] = useState<CashFlow | null>(null);
   const [seccionCaja, setSeccionCaja] = useState(true);
+  const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [pendingCaja, startCajaTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -458,80 +461,107 @@ export function PresupuestoClient({
         </Button>
       </div>
 
-      {/* Tabla */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Gastos · {filtrados.length}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-borde text-textoSec">
-                  <th className="text-left py-2 px-2 font-medium">Concepto</th>
-                  <th className="text-left py-2 px-2 font-medium">Categoría</th>
-                  <th className="text-left py-2 px-2 font-medium">Fecha</th>
-                  <th className="text-right py-2 px-2 font-medium">Monto</th>
-                  <th className="text-left py-2 px-2 font-medium">Estado</th>
-                  <th className="text-right py-2 px-2 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.map((e) => (
-                  <tr key={e.id} className="border-b border-borde/40 hover:bg-superficieAlt/40">
-                    <td className="py-2 px-2 font-medium">{e.concept}</td>
-                    <td className="py-2 px-2 text-textoSec">{e.category}</td>
-                    <td className="py-2 px-2 text-textoSec">{e.date ?? "—"}</td>
-                    <td className="py-2 px-2 text-right">
-                      {formatCOP(Number(e.amount))}
-                    </td>
-                    <td className="py-2 px-2">
-                      <Badge
-                        variant={
-                          e.status === "ejecutado"
-                            ? "success"
-                            : e.status === "cancelado"
-                            ? "danger"
-                            : e.status === "comprometido"
-                            ? "warning"
-                            : "default"
-                        }
-                      >
-                        {e.status}
-                      </Badge>
-                    </td>
-                    <td className="py-2 px-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditando(e)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onEliminar(e.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-error" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {filtrados.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-textoSec py-6">
-                      Sin gastos.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Vista de Gastos Agrupados (Acordeón) */}
+      <div className="space-y-3">
+        <h2 className="text-xl font-bold tracking-tight text-white mb-2 flex justify-between items-end">
+          <span>Desglose por Categorías</span>
+          <span className="text-sm font-normal text-textoSec">{filtrados.length} gastos en total</span>
+        </h2>
+        {CATEGORIAS.filter(c => !filtroCat || c.key === filtroCat).map((cat) => {
+          const gastosCat = filtrados.filter(e => e.category === cat.key);
+          const isExpanded = categoriaExpandida === cat.key;
+          const totalCat = gastosCat.reduce((acc, e) => acc + Number(e.amount), 0);
+
+          return (
+            <Card key={cat.key} className="overflow-hidden border-borde/50 hover:border-borde transition-colors">
+              <div 
+                className="flex items-center justify-between p-4 cursor-pointer select-none bg-superficie hover:bg-superficieAlt"
+                onClick={() => setCategoriaExpandida(isExpanded ? null : cat.key)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                  <h3 className="font-semibold text-white">{cat.label}</h3>
+                  <Badge variant="outline" className="text-xs">{gastosCat.length}</Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-medium text-acento">{formatCOP(totalCat)}</span>
+                  {isExpanded ? <ChevronUp className="h-4 w-4 text-textoSec" /> : <ChevronDown className="h-4 w-4 text-textoSec" />}
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="border-t border-borde bg-superficie/30">
+                  <div className="overflow-x-auto p-2">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-borde/40 text-textoSec">
+                          <th className="text-left py-2 px-3 font-medium">Concepto</th>
+                          <th className="text-left py-2 px-3 font-medium">Fecha</th>
+                          <th className="text-right py-2 px-3 font-medium">Monto</th>
+                          <th className="text-left py-2 px-3 font-medium">Estado</th>
+                          <th className="text-right py-2 px-3 font-medium">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gastosCat.map((e) => (
+                          <tr key={e.id} className="border-b border-borde/20 hover:bg-superficieAlt/60 transition-colors">
+                            <td className="py-2.5 px-3 font-medium">{e.concept}</td>
+                            <td className="py-2.5 px-3 text-textoSec">{e.date ?? "—"}</td>
+                            <td className="py-2.5 px-3 text-right">
+                              {formatCOP(Number(e.amount))}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <Badge
+                                variant={
+                                  e.status === "ejecutado"
+                                    ? "success"
+                                    : e.status === "cancelado"
+                                    ? "danger"
+                                    : e.status === "comprometido"
+                                    ? "warning"
+                                    : "default"
+                                }
+                                className="text-[10px]"
+                              >
+                                {e.status}
+                              </Badge>
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={(ev) => { ev.stopPropagation(); setEditando(e); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={(ev) => { ev.stopPropagation(); onEliminar(e.id); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-error" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                        {gastosCat.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="text-center text-textoSec py-6">
+                              Sin gastos en esta categoría.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
 
       <Dialog
         open={!!editando}
@@ -551,196 +581,6 @@ export function PresupuestoClient({
         )}
       </Dialog>
 
-      {/* — Sección Movimientos de Caja — */}
-      <Card>
-        <CardHeader
-          className="cursor-pointer select-none"
-          onClick={() => setSeccionCaja((v) => !v)}
-        >
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Movimientos de caja reales</span>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">{movimientosCaja.length}</Badge>
-              {seccionCaja ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </div>
-          </CardTitle>
-        </CardHeader>
-        {seccionCaja && (
-          <CardContent className="space-y-3">
-            <p className="text-xs text-textoSec">
-              Registra ingresos y egresos reales. Se reflejan automáticamente en /flujo-de-caja y en los charts.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => { setErrorCaja(null); setEditandoCaja(VACIO_CASHFLOW(projectId, "income")); }}
-              >
-                <TrendingUp className="h-3.5 w-3.5 mr-1" /> Nuevo ingreso
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setErrorCaja(null); setEditandoCaja(VACIO_CASHFLOW(projectId, "expense")); }}
-              >
-                <TrendingDown className="h-3.5 w-3.5 mr-1" /> Nuevo egreso
-              </Button>
-            </div>
-            {movimientosCaja.length === 0 ? (
-              <p className="text-sm text-textoSec py-4 text-center">Sin movimientos registrados.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-borde text-textoSec text-xs">
-                      <th className="text-left py-2 px-2">Fecha</th>
-                      <th className="text-left py-2 px-2">Concepto</th>
-                      <th className="text-left py-2 px-2">Tipo</th>
-                      <th className="text-right py-2 px-2">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {movimientosCaja.map((m) => (
-                      <tr
-                        key={m.id}
-                        className="border-b border-borde/50 hover:bg-superficieAlt cursor-pointer"
-                        onClick={() => { setErrorCaja(null); setEditandoCaja(m); }}
-                      >
-                        <td className="py-2 px-2 text-textoSec">{m.date}</td>
-                        <td className="py-2 px-2">{m.concept}</td>
-                        <td className="py-2 px-2">
-                          <Badge
-                            variant={m.type === "income" ? "success" : "danger"}
-                            className="text-xs"
-                          >
-                            {m.type === "income" ? "Ingreso" : "Egreso"}
-                          </Badge>
-                        </td>
-                        <td className={`py-2 px-2 text-right font-semibold ${m.type === "income" ? "text-exito" : "text-error"}`}>
-                          {m.type === "income" ? "+" : "-"}{formatCOP(Number(m.amount))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Modal: nuevo/editar movimiento de caja */}
-      <Dialog open={!!editandoCaja} onClose={() => { setEditandoCaja(null); setErrorCaja(null); setDupExpense(null); }}>
-        {editandoCaja && (
-          <>
-            <DialogHeader>
-              <DialogTitle>
-                {editandoCaja.id ? "Editar" : "Nuevo"} {editandoCaja.type === "income" ? "ingreso" : "egreso"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <Label>Concepto *</Label>
-                <Input
-                  value={editandoCaja.concept}
-                  onChange={(e) => setEditandoCaja({ ...editandoCaja, concept: e.target.value })}
-                  placeholder="Ej: Aporte UAO, Pago alojamiento..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Fecha *</Label>
-                  <Input
-                    type="date"
-                    value={editandoCaja.date}
-                    onChange={(e) => setEditandoCaja({ ...editandoCaja, date: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Tipo</Label>
-                  <Select
-                    value={editandoCaja.type}
-                    onChange={(e) => setEditandoCaja({ ...editandoCaja, type: e.target.value as "income" | "expense" })}
-                  >
-                    <option value="income">Ingreso</option>
-                    <option value="expense">Egreso</option>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <Label>Monto (COP) *</Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="any"
-                  placeholder="0"
-                  value={editandoCaja.amount === 0 ? "" : editandoCaja.amount}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setEditandoCaja({ ...editandoCaja, amount: v === "" ? 0 : Number(v) });
-                  }}
-                />
-              </div>
-              <div>
-                <Label>Categoría</Label>
-                <Select
-                  value={editandoCaja.category ?? ""}
-                  onChange={(e) => setEditandoCaja({ ...editandoCaja, category: e.target.value || null })}
-                >
-                  <option value="">— Sin categoría —</option>
-                  {CATEGORIAS.map((c) => (
-                    <option key={c.key} value={c.key}>{c.label}</option>
-                  ))}
-                  <option value="financiacion">Financiación</option>
-                  <option value="otros">Otros</option>
-                </Select>
-              </div>
-              <div>
-                <Label>Notas</Label>
-                <Textarea
-                  rows={2}
-                  value={editandoCaja.notes ?? ""}
-                  onChange={(e) => setEditandoCaja({ ...editandoCaja, notes: e.target.value || null })}
-                />
-              </div>
-              {errorCaja && <p className="text-sm text-error">{errorCaja}</p>}
-
-              {/* Banner alerta: duplicado en Presupuesto */}
-              {dupExpense && (
-                <div className="rounded border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
-                  <p className="font-semibold text-amber-400 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" /> ¿Posible duplicado?
-                  </p>
-                  <p className="text-textoSec">
-                    Ya existe en <strong>Presupuesto</strong> el concepto{" "}
-                    <span className="text-white">&ldquo;{dupExpense.concept}&rdquo;</span> por{" "}
-                    <span className="text-white">{formatCOP(Number(dupExpense.amount))}</span>.
-                    Registrarlo aquí también lo descontará <strong>dos veces</strong> del presupuesto.
-                  </p>
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" onClick={() => setDupExpense(null)}>
-                      Cancelar
-                    </Button>
-                    <Button size="sm" onClick={() => onGuardarCaja(editandoCaja, true)}>
-                      Sí, registrar de todas formas
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setEditandoCaja(null); setErrorCaja(null); setDupExpense(null); }} disabled={pendingCaja}>
-                Cancelar
-              </Button>
-              {!dupExpense && (
-                <Button onClick={() => onGuardarCaja(editandoCaja)} disabled={pendingCaja}>
-                  {pendingCaja ? "Guardando…" : "Guardar"}
-                </Button>
-              )}
-            </DialogFooter>
-          </>
-        )}
-      </Dialog>
     </div>
   );
 }

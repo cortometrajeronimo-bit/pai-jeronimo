@@ -619,69 +619,88 @@ function VistaDiaria({
     );
   }
 
+  // Agrupar por día
+  const porDia = new Map<string, typeof saldos>();
+  for (const item of saldos) {
+    const d = item.movimiento.date;
+    if (!porDia.has(d)) porDia.set(d, []);
+    porDia.get(d)!.push(item);
+  }
+  // Ordenar fechas (descendente para ver el más reciente primero, o ascendente si lo prefieres. Lo haremos ascendente como el original)
+  const dias = Array.from(porDia.entries()).sort(([a], [b]) => b.localeCompare(a));
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Vista diaria — saldo acumulado</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-borde text-left text-textoSec">
-              <th className="py-2 px-2">Fecha</th>
-              <th className="py-2 px-2">Concepto</th>
-              <th className="py-2 px-2">Categoría</th>
-              <th className="py-2 px-2 text-right">Ingreso</th>
-              <th className="py-2 px-2 text-right">Egreso</th>
-              <th className="py-2 px-2 text-right">Saldo</th>
-              <th className="py-2 px-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {saldos.map(({ movimiento: m, saldo }) => (
-              <tr key={m.id} className="border-b border-borde/50 hover:bg-superficieAlt">
-                <td className="py-2 px-2">{m.date}</td>
-                <td className="py-2 px-2 font-medium">{m.concept}</td>
-                <td className="py-2 px-2">
-                  {m.category && (
-                    <Badge variant="outline" className="text-xs">
-                      {m.category}
-                    </Badge>
-                  )}
-                </td>
-                <td className="py-2 px-2 text-right text-exito">
-                  {m.type === "income" ? formatCOP(Number(m.amount)) : ""}
-                </td>
-                <td className="py-2 px-2 text-right text-error">
-                  {m.type === "expense" ? formatCOP(Number(m.amount)) : ""}
-                </td>
-                <td className="py-2 px-2 text-right font-semibold text-acento">
-                  {formatCOP(saldo)}
-                </td>
-                <td className="py-2 px-2">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => onEdit(m)}
-                      className="text-textoSec hover:text-acento"
-                      aria-label="Editar"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => onDelete(m.id)}
-                      className="text-textoSec hover:text-error"
-                      aria-label="Eliminar"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      {dias.map(([fecha, items]) => {
+        const ingresosDia = items.reduce((acc, { movimiento: m }) => m.type === "income" ? acc + Number(m.amount) : acc, 0);
+        const egresosDia = items.reduce((acc, { movimiento: m }) => m.type === "expense" ? acc + Number(m.amount) : acc, 0);
+        const ultimoSaldo = items[items.length - 1].saldo;
+
+        return (
+          <Card key={fecha} className="overflow-hidden border-borde/50 hover:border-borde transition-colors">
+            <div className="flex items-center justify-between p-4 bg-superficie">
+              <h3 className="font-semibold text-white">{fecha}</h3>
+              <div className="flex items-center gap-4 text-sm">
+                {ingresosDia > 0 && <span className="text-exito">+{formatCOP(ingresosDia)}</span>}
+                {egresosDia > 0 && <span className="text-error">-{formatCOP(egresosDia)}</span>}
+                <span className="font-bold text-acento ml-2 border-l border-borde pl-4">Saldo: {formatCOP(ultimoSaldo)}</span>
+              </div>
+            </div>
+            <div className="border-t border-borde bg-superficie/30 overflow-x-auto p-2">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-borde/40 text-left text-textoSec">
+                    <th className="py-2 px-3 font-medium">Concepto</th>
+                    <th className="py-2 px-3 font-medium">Categoría</th>
+                    <th className="py-2 px-3 text-right font-medium">Ingreso</th>
+                    <th className="py-2 px-3 text-right font-medium">Egreso</th>
+                    <th className="py-2 px-3 text-right font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(({ movimiento: m }) => (
+                    <tr key={m.id} className="border-b border-borde/20 hover:bg-superficieAlt/60 transition-colors">
+                      <td className="py-2.5 px-3 font-medium">{m.concept}</td>
+                      <td className="py-2.5 px-3">
+                        {m.category && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {m.category}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-exito">
+                        {m.type === "income" ? formatCOP(Number(m.amount)) : ""}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-error">
+                        {m.type === "expense" ? formatCOP(Number(m.amount)) : ""}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => onEdit(m)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => onDelete(m.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-error" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 
@@ -858,6 +877,8 @@ function VistaProyecciones({
   onDelete: (id: string) => void;
   onMaterializar: (id: string) => void;
 }) {
+  const [fechaExpandida, setFechaExpandida] = useState<string | null>(null);
+
   if (proyectados.length === 0) {
     return (
       <Card>
@@ -869,69 +890,106 @@ function VistaProyecciones({
     );
   }
 
-  const ordenados = [...proyectados].sort((a, b) => a.date.localeCompare(b.date));
+  // Agrupar por fecha
+  const porFecha = new Map<string, typeof proyectados>();
+  for (const p of proyectados) {
+    if (!porFecha.has(p.date)) porFecha.set(p.date, []);
+    porFecha.get(p.date)!.push(p);
+  }
+  const fechas = Array.from(porFecha.entries()).sort(([a], [b]) => a.localeCompare(b));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Línea de tiempo proyectada</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {ordenados.map((m) => (
-            <div
-              key={m.id}
-              className="flex items-center gap-3 rounded border border-dashed border-borde p-3 hover:bg-superficieAlt"
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white">Línea de tiempo proyectada</h3>
+      {fechas.map(([fecha, items]) => {
+        const totalIngresos = items.reduce((acc, m) => m.type === "income" ? acc + Number(m.amount) : acc, 0);
+        const totalEgresos = items.reduce((acc, m) => m.type === "expense" ? acc + Number(m.amount) : acc, 0);
+        const isExpanded = fechaExpandida === fecha;
+
+        return (
+          <Card key={fecha} className="overflow-hidden border-borde/50 hover:border-borde transition-colors">
+            <div 
+              className="flex items-center justify-between p-4 cursor-pointer bg-superficie hover:bg-superficieAlt transition-colors"
+              onClick={() => setFechaExpandida(isExpanded ? null : fecha)}
             >
-              <Clock className="h-4 w-4 text-textoSec" />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-mono text-textoSec">{m.date}</span>
-                  <span className="font-medium">{m.concept}</span>
-                  {m.category && (
-                    <Badge variant="outline" className="text-xs">
-                      {m.category}
-                    </Badge>
-                  )}
-                </div>
-                {m.notes && <p className="text-xs text-textoSec mt-1">{m.notes}</p>}
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-white">{fecha}</h3>
+                <Badge variant="outline" className="text-xs">{items.length} movs</Badge>
               </div>
-              <div
-                className={`text-sm font-semibold ${
-                  m.type === "income" ? "text-exito" : "text-error"
-                }`}
-              >
-                {m.type === "income" ? "+" : "-"}
-                {formatCOP(Number(m.amount))}
-              </div>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onMaterializar(m.id)}
-                  className="text-textoSec hover:text-exito"
-                  aria-label="Confirmar (volver real)"
-                  title="Marcar como real"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => onEdit(m)}
-                  className="text-textoSec hover:text-acento"
-                  aria-label="Editar"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => onDelete(m.id)}
-                  className="text-textoSec hover:text-error"
-                  aria-label="Eliminar"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+              <div className="flex items-center gap-4 text-sm font-medium">
+                {totalIngresos > 0 && <span className="text-exito">+{formatCOP(totalIngresos)}</span>}
+                {totalEgresos > 0 && <span className="text-error">-{formatCOP(totalEgresos)}</span>}
+                {isExpanded ? <ChevronUp className="h-4 w-4 text-textoSec" /> : <ChevronDown className="h-4 w-4 text-textoSec" />}
               </div>
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            
+            {isExpanded && (
+              <div className="border-t border-borde bg-superficie/30">
+                <div className="divide-y divide-borde/20 p-2">
+                  {items.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3 hover:bg-superficieAlt/50 rounded transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-textoSec" />
+                          {m.concept}
+                          {m.category && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {m.category}
+                            </Badge>
+                          )}
+                        </p>
+                        {m.notes && (
+                          <p className="text-xs text-textoSec mt-1 pl-5.5">{m.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between sm:justify-end gap-4">
+                        <span
+                          className={`font-semibold text-sm ${
+                            m.type === "income" ? "text-exito" : "text-error"
+                          }`}
+                        >
+                          {m.type === "income" ? "+" : "-"}
+                          {formatCOP(Number(m.amount))}
+                        </span>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => { e.stopPropagation(); onMaterializar(m.id); }}
+                            title="Marcar como ejecutado"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 text-exito" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => { e.stopPropagation(); onEdit(m); }}
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-textoSec hover:text-white" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => { e.stopPropagation(); onDelete(m.id); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-error" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        );
+      })}
+    </div>
   );
 }

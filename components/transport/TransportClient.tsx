@@ -18,6 +18,32 @@ import {
 
 type CrewLite = { id: string; name: string; role: string };
 
+function getPicoYPlacaInfo(vehicleName: string, dateString: string | null) {
+  if (!dateString) return null;
+  // Extraer el último dígito del nombre/placa (ej: "Nissan March (HWS 637)")
+  const match = vehicleName.match(/(\d)\D*$/);
+  if (!match) return null;
+  const lastDigit = parseInt(match[1], 10);
+  
+  const d = new Date(dateString + "T12:00:00");
+  const day = d.getDay();
+  
+  // Rotación Cali Primer Semestre 2026
+  const restrictions: Record<number, number[]> = {
+    1: [1, 2], // Lunes
+    2: [3, 4], // Martes
+    3: [5, 6], // Miércoles
+    4: [7, 8], // Jueves
+    5: [9, 0]  // Viernes
+  };
+
+  const restrictedDigits = restrictions[day];
+  if (restrictedDigits && restrictedDigits.includes(lastDigit)) {
+    return "Tiene Pico y Placa";
+  }
+  return null;
+}
+
 const VACIO = (projectId: string): Transport => ({
   id: "",
   project_id: projectId,
@@ -174,11 +200,14 @@ export function TransportClient({
             const ocupacion = v.crew_assigned.length;
             const cap = v.capacity ?? 0;
             const sobreocupado = cap > 0 && ocupacion > cap;
+            const picoYPlaca = getPicoYPlacaInfo(v.vehicle_name, v.date);
+            
             return (
               <Card
                 key={v.id}
-                className={sobreocupado ? "border-error" : ""}
+                className={sobreocupado || picoYPlaca ? "border-error" : ""}
               >
+
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
                     <div className="flex items-start gap-2">
@@ -193,12 +222,19 @@ export function TransportClient({
                         )}
                       </div>
                     </div>
-                    <Badge
-                      variant={sobreocupado ? "danger" : "outline"}
-                      className="text-xs shrink-0"
-                    >
-                      {ocupacion}/{cap || "—"}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge
+                        variant={sobreocupado ? "danger" : "outline"}
+                        className="text-xs shrink-0"
+                      >
+                        {ocupacion}/{cap || "—"}
+                      </Badge>
+                      {picoYPlaca && (
+                        <Badge variant="danger" className="text-[10px]">
+                          {picoYPlaca}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
