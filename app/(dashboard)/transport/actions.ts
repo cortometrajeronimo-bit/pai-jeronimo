@@ -51,7 +51,7 @@ export async function guardarTransporte(data: TransportInput) {
       concept: `Transporte: ${rest.vehicle_name}`,
       type: "expense" as const,
       amount: money,
-      category: "produccion", // Todos los transportes van a producción
+      category: "transportes", // Todos los transportes van a transportes
       is_projected: true,
       notes: `Presupuesto asignado al vehículo: ${rest.vehicle_name}. Sincronizado automáticamente.`
     };

@@ -49,18 +49,7 @@ import {
 
 type Vista = "diaria" | "semanal" | "mensual" | "proyecciones";
 
-const CATEGORIAS = [
-  "financiacion",
-  "desarrollo",
-  "pre-produccion",
-  "produccion",
-  "post-produccion",
-  "transporte",
-  "alimentacion",
-  "locacion",
-  "honorarios",
-  "otros",
-];
+const CATEGORIAS = ["honorarios", "transportes", "catering", "arte-vestuario", "materiales-locaciones", "imprevistos"];
 
 const VACIO = (projectId: string): CashFlow => ({
   id: "",
@@ -69,7 +58,7 @@ const VACIO = (projectId: string): CashFlow => ({
   concept: "",
   type: "expense",
   amount: 0,
-  category: "produccion",
+  category: "honorarios",
   is_projected: false,
   notes: null,
   created_at: "",

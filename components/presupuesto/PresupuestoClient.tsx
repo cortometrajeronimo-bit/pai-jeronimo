@@ -51,16 +51,12 @@ const CATEGORIAS = [
 ];
 
 const MAPA_CASHFLOW: Record<string, string> = {
-  "financiacion": "imprevistos",
-  "desarrollo": "honorarios",
-  "pre-produccion": "honorarios",
-  "produccion": "honorarios",
-  "post-produccion": "honorarios",
-  "transporte": "transportes",
-  "alimentacion": "catering",
-  "locacion": "materiales-locaciones",
   "honorarios": "honorarios",
-  "otros": "imprevistos",
+  "transportes": "transportes",
+  "catering": "catering",
+  "arte-vestuario": "arte-vestuario",
+  "materiales-locaciones": "materiales-locaciones",
+  "imprevistos": "imprevistos",
 };
 
 const ESTADOS = ["planeado", "comprometido", "ejecutado", "cancelado"];
@@ -70,7 +66,7 @@ const VACIO = (projectId: string): Expense => ({
   id: "",
   project_id: projectId,
   concept: "",
-  category: "produccion",
+  category: "honorarios",
   amount: 0,
   date: new Date().toISOString().slice(0, 10),
   status: "planeado",
