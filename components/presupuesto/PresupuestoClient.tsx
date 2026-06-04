@@ -50,6 +50,19 @@ const CATEGORIAS = [
   { key: "imprevistos", label: "Imprevistos", presupuesto: 68_000, color: "#806010" },
 ];
 
+const MAPA_CASHFLOW: Record<string, string> = {
+  "financiacion": "imprevistos",
+  "desarrollo": "honorarios",
+  "pre-produccion": "honorarios",
+  "produccion": "honorarios",
+  "post-produccion": "honorarios",
+  "transporte": "transportes",
+  "alimentacion": "catering",
+  "locacion": "materiales-locaciones",
+  "honorarios": "honorarios",
+  "otros": "imprevistos",
+};
+
 const ESTADOS = ["planeado", "comprometido", "ejecutado", "cancelado"];
 const TOTAL = 10_300_500;
 
@@ -134,8 +147,13 @@ export function PresupuestoClient({
       const plan = filtrados
         .filter((e) => e.category === c.key && e.status === "planeado")
         .reduce((acc, e) => acc + Number(e.amount), 0);
+
       // Desde cash_flow (egresos)
-      const cfDeCat = egresosCaja.filter((m) => norm(m.category) === keyN);
+      const cfDeCat = egresosCaja.filter((m) => {
+        const normM = norm(m.category);
+        const mapped = MAPA_CASHFLOW[normM] || normM;
+        return mapped === keyN;
+      });
       const ejCF = cfDeCat
         .filter((m) => !m.is_projected)
         .reduce((acc, m) => acc + Number(m.amount), 0);
@@ -409,9 +427,25 @@ export function PresupuestoClient({
           <span className="text-sm font-normal text-textoSec">{filtrados.length} gastos en total</span>
         </h2>
         {CATEGORIAS.filter(c => !filtroCat || c.key === filtroCat).map((cat) => {
-          const gastosCat = filtrados.filter(e => e.category === cat.key);
+          const gastosEst = filtrados.filter(e => e.category === cat.key);
+          const gastosCaja = egresosCaja
+            .filter(m => (MAPA_CASHFLOW[norm(m.category)] || norm(m.category)) === norm(cat.key))
+            .map(m => ({
+              id: m.id,
+              concept: m.concept + " (Caja)",
+              date: m.date,
+              amount: m.amount,
+              category: cat.key,
+              status: m.is_projected ? "comprometido" : "ejecutado",
+              isFromCashFlow: true
+            } as unknown as Expense));
+          
+          const combinedList = [...gastosEst, ...gastosCaja];
           const isExpanded = categoriaExpandida === cat.key;
-          const totalCat = gastosCat.reduce((acc, e) => acc + Number(e.amount), 0);
+          
+          // Usar el total calculado en porCategoria para consistencia
+          const dataCat = porCategoria.find(c => c.key === cat.key);
+          const totalCat = dataCat ? dataCat.ejecutado + dataCat.comprometido + dataCat.planeado : 0;
 
           return (
             <Card key={cat.key} className="overflow-hidden border-borde/50 hover:border-borde transition-colors">
@@ -422,7 +456,7 @@ export function PresupuestoClient({
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
                   <h3 className="font-semibold text-white">{cat.label}</h3>
-                  <Badge variant="outline" className="text-xs">{gastosCat.length}</Badge>
+                  <Badge variant="outline" className="text-xs">{combinedList.length}</Badge>
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="font-medium text-acento">{formatCOP(totalCat)}</span>
@@ -444,7 +478,7 @@ export function PresupuestoClient({
                         </tr>
                       </thead>
                       <tbody>
-                        {gastosCat.map((e) => (
+                        {combinedList.map((e) => (
                           <tr key={e.id} className="border-b border-borde/20 hover:bg-superficieAlt/60 transition-colors">
                             <td className="py-2.5 px-3 font-medium">{e.concept}</td>
                             <td className="py-2.5 px-3 text-textoSec">{e.date ?? "—"}</td>
@@ -468,26 +502,31 @@ export function PresupuestoClient({
                               </Badge>
                             </td>
                             <td className="py-2.5 px-3 text-right">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                onClick={(ev) => { ev.stopPropagation(); setEditando(e); }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                onClick={(ev) => { ev.stopPropagation(); onEliminar(e.id); }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-error" />
-                              </Button>
+                              {/* @ts-expect-error isFromCashFlow is a custom flag */}
+                              {!e.isFromCashFlow && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0"
+                                    onClick={(ev) => { ev.stopPropagation(); setEditando(e); }}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0"
+                                    onClick={(ev) => { ev.stopPropagation(); onEliminar(e.id); }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-danger" />
+                                  </Button>
+                                </>
+                              )}
                             </td>
                           </tr>
                         ))}
-                        {gastosCat.length === 0 && (
+                        {combinedList.length === 0 && (
                           <tr>
                             <td colSpan={5} className="text-center text-textoSec py-6">
                               Sin gastos en esta categoría.

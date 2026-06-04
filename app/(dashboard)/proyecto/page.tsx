@@ -73,6 +73,7 @@ export default async function ProyectoPage() {
     { data: documentosRaw },
     { data: driveFiles },
     clima,
+    { data: cashFlow },
   ] = await Promise.all([
     supabase
       .from("projects")
@@ -113,6 +114,7 @@ export default async function ProyectoPage() {
       .order("name", { ascending: true })
       .limit(100),
     climaTulua(),
+    supabase.from("cash_flow").select("amount, type, is_projected"),
   ]);
 
   const fechaRodaje = new Date(project?.start_date ?? "2026-06-06");
@@ -121,14 +123,25 @@ export default async function ProyectoPage() {
   );
 
   const presupuesto = Number(project?.budget_total ?? 10_300_500);
-  // Solo cuenta como ejecutado lo que realmente se gastó (status='ejecutado').
-  // 'planeado' y 'comprometido' son montos proyectados, no gastos reales.
-  const ejecutado = (expenses ?? [])
+  
+  const ejecutadoExpenses = (expenses ?? [])
     .filter((e) => e.status === "ejecutado")
     .reduce((acc, e) => acc + Number(e.amount || 0), 0);
-  const comprometido = (expenses ?? [])
+  const comprometidoExpenses = (expenses ?? [])
     .filter((e) => e.status === "comprometido")
     .reduce((acc, e) => acc + Number(e.amount || 0), 0);
+    
+  const egresosCaja = (cashFlow ?? []).filter((m) => m.type === "expense");
+  const ejecutadoCaja = egresosCaja
+    .filter((m) => !m.is_projected)
+    .reduce((acc, m) => acc + Number(m.amount || 0), 0);
+  const comprometidoCaja = egresosCaja
+    .filter((m) => m.is_projected)
+    .reduce((acc, m) => acc + Number(m.amount || 0), 0);
+
+  const ejecutado = ejecutadoExpenses + ejecutadoCaja;
+  const comprometido = comprometidoExpenses + comprometidoCaja;
+
   const pctEjecutado = presupuesto > 0 ? (ejecutado / presupuesto) * 100 : 0;
   const pctComprometido = presupuesto > 0 ? (comprometido / presupuesto) * 100 : 0;
 
