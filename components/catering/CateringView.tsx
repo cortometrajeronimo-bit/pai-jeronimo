@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { guardarCatering, eliminarCatering } from "@/app/(dashboard)/catering/actions";
+import { guardarCatering, eliminarCatering } from "@/app/(dashboard)/comida/actions";
 
 type CrewRestriccion = { id: string; name: string; dietary_restrictions: string | null };
 
