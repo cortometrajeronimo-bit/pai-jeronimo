@@ -27,7 +27,7 @@ export async function guardarCatering(data: CateringInput) {
     const { error } = await supabase.from("catering").insert(rest);
     if (error) return { ok: false, error: error.message };
   }
-  revalidatePath("/catering");
+  revalidatePath("/comida");
   return { ok: true };
 }
 
@@ -37,6 +37,6 @@ export async function eliminarCatering(id: string) {
   if (!user) return { ok: false, error: "Sesión expirada." };
   const { error } = await supabase.from("catering").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/catering");
+  revalidatePath("/comida");
   return { ok: true };
 }
