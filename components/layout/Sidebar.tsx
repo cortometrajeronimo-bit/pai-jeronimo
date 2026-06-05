@@ -133,7 +133,7 @@ export function Sidebar({ isOpen = false, onClose }: Props) {
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
         {GRUPOS.map((g) => {
           const activo = grupoActivo(g, pathname);
-          const Icon = g?.icon || (typeof AlertTriangle !== "undefined" ? AlertTriangle : "svg");
+          const Icon = g?.icon || ((props: React.SVGProps<SVGSVGElement>) => <svg {...props} />);
 
           // Link directo (sin hijos)
           if (g.href) {

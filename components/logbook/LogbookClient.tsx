@@ -216,7 +216,7 @@ export function LogbookClient({
         <div className="space-y-3">
           {filtrados.map((l) => {
             const meta = CATEGORIAS.find((c) => c.key === l.category)!;
-            const Icon = meta?.icon || (typeof AlertTriangle !== "undefined" ? AlertTriangle : "svg");
+            const Icon = meta?.icon || ((props: React.SVGProps<SVGSVGElement>) => <svg {...props} />);
             const updates = (l.producer_log_updates ?? []).slice().sort((a, b) =>
               a.created_at.localeCompare(b.created_at)
             );
