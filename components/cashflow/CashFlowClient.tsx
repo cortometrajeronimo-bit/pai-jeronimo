@@ -669,18 +669,18 @@ function VistaDiaria({
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 w-7 p-0"
+                          className="h-9 w-9 p-1.5 shrink-0"
                           onClick={() => onEdit(m)}
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 w-7 p-0"
+                          className="h-9 w-9 p-1.5 shrink-0"
                           onClick={() => onDelete(m.id)}
                         >
-                          <Trash2 className="h-3.5 w-3.5 text-error" />
+                          <Trash2 className="h-4 w-4 text-error" />
                         </Button>
                       </td>
                     </tr>
@@ -949,7 +949,7 @@ function VistaProyecciones({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0"
+                            className="h-9 w-9 p-1.5 shrink-0"
                             onClick={(e) => { e.stopPropagation(); onMaterializar(m.id); }}
                             title="Marcar como ejecutado"
                           >
@@ -958,7 +958,7 @@ function VistaProyecciones({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0"
+                            className="h-9 w-9 p-1.5 shrink-0"
                             onClick={(e) => { e.stopPropagation(); onEdit(m); }}
                           >
                             <Pencil className="h-3.5 w-3.5 text-textoSec hover:text-white" />
@@ -966,10 +966,10 @@ function VistaProyecciones({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0"
+                            className="h-9 w-9 p-1.5 shrink-0"
                             onClick={(e) => { e.stopPropagation(); onDelete(m.id); }}
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-error" />
+                            <Trash2 className="h-4 w-4 text-error" />
                           </Button>
                         </div>
                       </div>

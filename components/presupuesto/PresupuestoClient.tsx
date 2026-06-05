@@ -504,18 +504,18 @@ export function PresupuestoClient({
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 w-7 p-0"
+                                    className="h-9 w-9 p-1.5 shrink-0"
                                     onClick={(ev) => { ev.stopPropagation(); setEditando(e); }}
                                   >
-                                    <Pencil className="h-3.5 w-3.5" />
+                                    <Pencil className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 w-7 p-0"
+                                    className="h-9 w-9 p-1.5 shrink-0"
                                     onClick={(ev) => { ev.stopPropagation(); onEliminar(e.id); }}
                                   >
-                                    <Trash2 className="h-3.5 w-3.5 text-danger" />
+                                    <Trash2 className="h-4 w-4 text-danger" />
                                   </Button>
                                 </>
                               )}

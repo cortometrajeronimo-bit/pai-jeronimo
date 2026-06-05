@@ -199,13 +199,13 @@ export function IncidentsClient({
                         onClick={() => setEditando(i)}
                         className="text-textoSec hover:text-acento"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => eliminar(i.id)}
                         className="text-textoSec hover:text-error"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>

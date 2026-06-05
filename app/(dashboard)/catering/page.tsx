@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { CateringClient } from "@/components/catering/CateringClient";
+import { CateringView } from "@/components/catering/CateringView";
 
 export default async function CateringPage() {
   const supabase = await createClient();
@@ -33,7 +33,7 @@ export default async function CateringPage() {
       {!projectId ? (
         <p className="text-sm text-advertencia">⚠ No hay proyecto JERÓNIMO en la base.</p>
       ) : (
-        <CateringClient
+        <CateringView
           meals={meals ?? []}
           conRestriccion={conRestriccion}
           projectId={projectId}

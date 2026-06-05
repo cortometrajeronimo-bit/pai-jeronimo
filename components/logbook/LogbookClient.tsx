@@ -462,10 +462,10 @@ function HiloActualizaciones({
               <p className="flex-1 whitespace-pre-wrap text-sm text-textoPri leading-relaxed">{u.note}</p>
               <button
                 onClick={() => quitar(u.id)}
-                className="opacity-0 group-hover:opacity-100 text-textoSec hover:text-error transition-opacity shrink-0"
+                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-textoSec hover:text-error transition-opacity shrink-0"
                 title="Eliminar nota"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))

@@ -197,17 +197,17 @@ export function ContactosClient({ contactos, projectId }: Props) {
               <div className="mt-3 space-y-1 text-xs text-textoSec">
                 {c.phone && (
                   <p className="flex items-center gap-2">
-                    <Phone className="h-3 w-3" /> {c.phone}
+                    <Phone className="h-4 w-4" /> {c.phone}
                   </p>
                 )}
                 {c.email && (
                   <p className="flex items-center gap-2 truncate">
-                    <Mail className="h-3 w-3" /> {c.email}
+                    <Mail className="h-4 w-4" /> {c.email}
                   </p>
                 )}
                 {c.address && (
                   <p className="flex items-center gap-2">
-                    <MapPin className="h-3 w-3" /> {c.address}
+                    <MapPin className="h-4 w-4" /> {c.address}
                   </p>
                 )}
               </div>
@@ -230,7 +230,7 @@ export function ContactosClient({ contactos, projectId }: Props) {
               )}
               <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-borde">
                 <Button size="sm" variant="ghost" onClick={() => setEditando(c)}>
-                  <Pencil className="h-3.5 w-3.5" />
+                  <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   size="sm"
@@ -238,7 +238,7 @@ export function ContactosClient({ contactos, projectId }: Props) {
                   onClick={() => onEliminar(c.id)}
                   disabled={pending}
                 >
-                  <Trash2 className="h-3.5 w-3.5 text-error" />
+                  <Trash2 className="h-4 w-4 text-error" />
                 </Button>
               </div>
             </Card>
@@ -374,7 +374,7 @@ function ContactoForm({
 
         <div className="md:col-span-2">
           <Label className="text-xs text-textoSec flex items-center gap-1">
-            <TagIcon className="h-3 w-3" /> Tags
+            <TagIcon className="h-4 w-4" /> Tags
           </Label>
           <div className="flex gap-2 mt-1">
             <Input

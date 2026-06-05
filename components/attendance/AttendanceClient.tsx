@@ -182,7 +182,7 @@ export function AttendanceClient({
                             className="text-xs flex items-center gap-1 text-exito hover:underline"
                             disabled={pending}
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <CheckCircle2 className="h-4 w-4" />
                             Llegada
                           </button>
                         )}
@@ -192,7 +192,7 @@ export function AttendanceClient({
                             className="text-xs flex items-center gap-1 text-acento hover:underline"
                             disabled={pending}
                           >
-                            <LogOutIcon className="h-3.5 w-3.5" />
+                            <LogOutIcon className="h-4 w-4" />
                             Salida
                           </button>
                         )}
@@ -201,7 +201,7 @@ export function AttendanceClient({
                             onClick={() => quitar(a.id)}
                             className="text-xs text-textoSec hover:text-error ml-1"
                           >
-                            <Clock className="h-3.5 w-3.5" />
+                            <Clock className="h-4 w-4" />
                           </button>
                         )}
                       </div>

@@ -167,7 +167,7 @@ export function EquiposClient({
                           variant="ghost"
                           onClick={() => setEditando(e)}
                         >
-                          <Pencil className="h-3 w-3" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"

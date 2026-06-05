@@ -216,7 +216,7 @@ export function TransportClient({
                         <CardTitle className="text-base leading-tight">{v.vehicle_name}</CardTitle>
                         {v.driver && (
                           <p className="text-sm text-textoSec mt-1 flex items-center gap-1">
-                            <User className="h-3.5 w-3.5" />
+                            <User className="h-4 w-4" />
                             {v.driver}
                           </p>
                         )}
@@ -291,13 +291,13 @@ export function TransportClient({
                       onClick={() => setEditando(v)}
                       className="text-sm text-textoSec hover:text-acento flex items-center gap-1"
                     >
-                      <Pencil className="h-3.5 w-3.5" /> Editar
+                      <Pencil className="h-4 w-4" /> Editar
                     </button>
                     <button
                       onClick={() => eliminar(v.id)}
                       className="text-sm text-textoSec hover:text-error ml-auto flex items-center gap-1"
                     >
-                      <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                      <Trash2 className="h-4 w-4" /> Eliminar
                     </button>
                   </div>
                 </CardContent>

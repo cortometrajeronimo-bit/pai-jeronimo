@@ -322,7 +322,7 @@ export function DriveClient({
                         rel="noopener noreferrer"
                         className="text-xs flex items-center gap-1 text-acento hover:underline"
                       >
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-4 w-4" />
                         Abrir
                       </a>
                     )}
@@ -332,7 +332,7 @@ export function DriveClient({
                         className="text-xs flex items-center gap-1 text-acento hover:underline"
                         disabled={pending}
                       >
-                        <ImportIcon className="h-3 w-3" />
+                        <ImportIcon className="h-4 w-4" />
                         Importar a Cash Flow
                       </button>
                     )}
@@ -341,7 +341,7 @@ export function DriveClient({
                       className="text-xs flex items-center gap-1 text-textoSec hover:text-error ml-auto"
                       disabled={pending}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </CardContent>

@@ -448,7 +448,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                             onClick={() => { setError(null); setEditandoTemplate(t); }}
                             className="text-textoSec hover:text-acento p-1"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-4 w-4" />
                           </button>
                         )}
                         {!legal && (
@@ -463,7 +463,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                             }}
                             className="text-textoSec hover:text-error p-1"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         )}
                       </div>
@@ -803,7 +803,7 @@ export function ContractsClient({ contracts, templates, crew, driveFiles, projec
                   )}
                   {c.file_url && (
                     <a href={c.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-acento hover:underline text-xs">
-                      <ExternalLink className="h-3 w-3" /> Ver enlace externo
+                      <ExternalLink className="h-4 w-4" /> Ver enlace externo
                     </a>
                   )}
                   {c.notes && <p className="text-xs text-textoSec line-clamp-2">{c.notes}</p>}

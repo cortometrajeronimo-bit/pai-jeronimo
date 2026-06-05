@@ -76,7 +76,7 @@ function detectarConflictos(
   return conflictos;
 }
 
-export function CateringClient({
+export function CateringView({
   meals,
   conRestriccion,
   projectId,

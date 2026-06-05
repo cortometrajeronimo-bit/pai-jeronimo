@@ -158,7 +158,7 @@ export function ChatClient({
             onClick={limpiar}
             aria-label="Limpiar"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -177,7 +177,7 @@ export function ChatClient({
               disabled={cargandoMas}
               className="gap-1 text-xs"
             >
-              <ChevronUp className="h-3 w-3" />
+              <ChevronUp className="h-4 w-4" />
               {cargandoMas ? "Cargando…" : "Cargar mensajes anteriores"}
             </Button>
           </div>

@@ -189,7 +189,7 @@ export function CrewClient({ crew, projectId }: Props) {
                 <TableCell>
                   {m.is_confirmed && (
                     <Badge variant="success" className="gap-1">
-                      <Check className="h-3 w-3" /> Confirmado
+                      <Check className="h-4 w-4" /> Confirmado
                     </Badge>
                   )}
                 </TableCell>

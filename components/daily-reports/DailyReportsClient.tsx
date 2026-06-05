@@ -154,19 +154,19 @@ export function DailyReportsClient({
                     onClick={() => descargarPDF(r)}
                     className="text-xs flex items-center gap-1 text-acento hover:underline"
                   >
-                    <FileDown className="h-3 w-3" /> PDF
+                    <FileDown className="h-4 w-4" /> PDF
                   </button>
                   <button
                     onClick={() => setEditando(r)}
                     className="text-xs flex items-center gap-1 text-textoSec hover:text-acento"
                   >
-                    <Pencil className="h-3 w-3" /> Editar
+                    <Pencil className="h-4 w-4" /> Editar
                   </button>
                   <button
                     onClick={() => eliminar(r.id)}
                     className="text-xs flex items-center gap-1 text-textoSec hover:text-error ml-auto"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </CardContent>
