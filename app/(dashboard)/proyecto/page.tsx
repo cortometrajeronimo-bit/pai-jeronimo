@@ -183,17 +183,17 @@ export default async function ProyectoPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Calendar className="h-4 w-4 text-acento" />
-              Días al rodaje
+              {diasRestantes > 0 ? "Cuenta regresiva" : "Día de rodaje"}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-acento">
-              {diasRestantes > 0 ? diasRestantes : 0}
+              {diasRestantes > 0 ? diasRestantes : `#${Math.abs(diasRestantes) + 1}`}
             </div>
             <p className="text-xs text-textoSec mt-1">
               {diasRestantes > 0
-                ? `Inicio: ${formatDate(fechaRodaje)}`
-                : "Rodaje en curso o finalizado"}
+                ? `Faltan para el inicio (${formatDate(fechaRodaje)})`
+                : "Rodaje en curso"}
             </p>
           </CardContent>
         </Card>
