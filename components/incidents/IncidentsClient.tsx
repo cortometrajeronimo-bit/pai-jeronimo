@@ -147,7 +147,7 @@ export function IncidentsClient({
         <div className="space-y-2">
           {filtrados.map((i) => {
             const meta = META[i.type];
-            const Icon = meta.icon;
+            const Icon = meta?.icon || (typeof AlertTriangle !== "undefined" ? AlertTriangle : "svg");
             return (
               <Card
                 key={i.id}

@@ -86,7 +86,7 @@ export function DocViewer({ documentos }: { documentos: DocumentoProyecto[] }) {
         <div className="flex gap-2 snap-x snap-mandatory lg:flex-col lg:gap-1 lg:snap-none">
           {documentos.map((d) => {
             const meta = ETIQUETAS[d.category] ?? ETIQUETAS.otro;
-            const Icon = meta.icon;
+            const Icon = meta?.icon || (typeof AlertTriangle !== "undefined" ? AlertTriangle : "svg");
             const activo = seleccionado?.id === d.id;
             return (
               <button

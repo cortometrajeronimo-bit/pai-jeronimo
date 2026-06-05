@@ -196,7 +196,7 @@ export function CateringView({
               <div className="grid gap-3 md:grid-cols-3">
                 {comidas.map((c) => {
                   const meta = MEAL_META[c.meal_type] || { label: c.meal_type || "Desconocido", icon: UtensilsCrossed };
-                  const Icon = meta.icon;
+                  const Icon = meta?.icon || (typeof AlertTriangle !== "undefined" ? AlertTriangle : "svg");
                   const conflictos = detectarConflictos(c.menu, conRestriccion);
                   return (
                     <Card
