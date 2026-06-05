@@ -240,7 +240,7 @@ export type Catering = {
   id: string;
   project_id: string;
   date: string;
-  meal_type: "desayuno" | "almuerzo" | "cena";
+  meal_type: "desayuno" | "almuerzo" | "cena" | "refrigerio_1" | "refrigerio_2";
   menu: string | null;
   provider: string | null;
   portions_count: number | null;

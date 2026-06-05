@@ -9,6 +9,8 @@ import {
   Coffee,
   UtensilsCrossed,
   Soup,
+  Apple,
+  Minus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Catering } from "@/lib/types";
@@ -26,7 +28,9 @@ type CrewRestriccion = { id: string; name: string; dietary_restrictions: string 
 
 const MEAL_META: Record<Catering["meal_type"], { label: string; icon: LucideIcon }> = {
   desayuno: { label: "Desayuno", icon: Coffee },
+  refrigerio_1: { label: "Refrigerio AM", icon: Apple },
   almuerzo: { label: "Almuerzo", icon: UtensilsCrossed },
+  refrigerio_2: { label: "Refrigerio PM", icon: Apple },
   cena: { label: "Cena", icon: Soup },
 };
 
@@ -37,7 +41,7 @@ const VACIO = (projectId: string): Catering => ({
   meal_type: "almuerzo",
   menu: null,
   provider: null,
-  portions_count: 19,
+  portions_count: 23,
   notes: null,
   created_at: "",
 });
@@ -120,6 +124,19 @@ export function CateringClient({
     });
   }
 
+  function ajustarPorciones(c: Catering, delta: number) {
+    const newVal = Math.max(0, (c.portions_count ?? 0) + delta);
+    startTransition(async () => {
+      await guardarCatering({
+        id: c.id,
+        project_id: projectId,
+        date: c.date,
+        meal_type: c.meal_type,
+        portions_count: newVal,
+      });
+    });
+  }
+
   function eliminar(id: string) {
     if (!confirm("¿Eliminar esta comida?")) return;
     startTransition(async () => {
@@ -151,15 +168,18 @@ export function CateringClient({
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 border-b-2 border-borde pb-4 mb-6">
         <Input
           type="date"
           value={filtroFecha}
           onChange={(e) => setFiltroFecha(e.target.value)}
-          className="max-w-[200px]"
+          className="max-w-[200px] border-2 border-borde rounded-none uppercase font-mono tracking-widest text-sm"
         />
-        <Button onClick={abrirNuevo} className="ml-auto">
-          <Plus className="h-4 w-4 mr-1" /> Nueva comida
+        <Button 
+          onClick={abrirNuevo} 
+          className="ml-auto rounded-none uppercase font-black tracking-widest border-2 border-transparent bg-acento text-black hover:bg-acentoHover"
+        >
+          <Plus className="h-5 w-5 mr-2" strokeWidth={3} /> CREAR MENÚ
         </Button>
       </div>
 
@@ -182,58 +202,81 @@ export function CateringClient({
                   return (
                     <Card
                       key={c.id}
-                      className={conflictos.length > 0 ? "border-error" : ""}
+                      className={`rounded-none border-2 shadow-none transition-colors ${
+                        conflictos.length > 0 ? "border-error" : "border-borde hover:border-textoSec"
+                      }`}
                     >
-                      <CardHeader className="pb-2">
+                      <CardHeader className="pb-2 border-b border-borde bg-superficie/30">
                         <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-2">
-                            <Icon className="h-5 w-5 text-acento mt-0.5" />
+                          <div className="flex items-start gap-3">
+                            <Icon className="h-6 w-6 text-acento mt-0.5" strokeWidth={1.5} />
                             <div>
-                              <CardTitle className="text-base">{meta.label}</CardTitle>
+                              <CardTitle className="text-lg font-black uppercase tracking-wider">{meta.label}</CardTitle>
                               {c.provider && (
-                                <p className="text-xs text-textoSec mt-0.5">
+                                <p className="text-xs text-textoSec mt-0.5 font-mono uppercase">
                                   {c.provider}
                                 </p>
                               )}
                             </div>
                           </div>
-                          <Badge variant="outline" className="text-xs">
-                            {c.portions_count ?? 0} pax
-                          </Badge>
+                          
+                          <div className="flex items-center gap-1 border-2 border-borde p-0.5 bg-fondo">
+                            <button
+                              onClick={() => ajustarPorciones(c, -1)}
+                              disabled={pending}
+                              className="p-1 text-textoSec hover:text-acento hover:bg-superficie transition-colors disabled:opacity-50"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="font-mono font-bold text-sm min-w-[3ch] text-center">
+                              {c.portions_count ?? 0}
+                            </span>
+                            <button
+                              onClick={() => ajustarPorciones(c, 1)}
+                              disabled={pending}
+                              className="p-1 text-textoSec hover:text-acento hover:bg-superficie transition-colors disabled:opacity-50"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="text-sm space-y-1">
-                        {c.menu && <p className="text-xs">{c.menu}</p>}
+                      <CardContent className="text-sm space-y-3 pt-3">
+                        {c.menu && <p className="text-sm font-medium leading-relaxed">{c.menu}</p>}
                         {conflictos.length > 0 && (
-                          <div className="rounded border border-error bg-error/10 p-2 text-xs space-y-1">
-                            <p className="font-semibold text-error flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              Conflictos detectados
+                          <div className="rounded-none border-l-4 border-l-error border-y border-r border-error/20 bg-error/5 p-3 text-xs space-y-2">
+                            <p className="font-black text-error flex items-center gap-2 uppercase tracking-wide">
+                              <AlertTriangle className="h-4 w-4" strokeWidth={2.5} />
+                              CONFLICTOS DE RESTRICCIÓN
                             </p>
                             {conflictos.map((cf, i) => (
-                              <p key={i} className="text-textoSec">
+                              <p key={i} className="text-textoSec font-mono">
                                 <span className="text-acento">{cf.crew}</span> no consume{" "}
-                                <span className="text-error">{cf.ingrediente}</span>
+                                <span className="text-error font-bold">{cf.ingrediente}</span>
                               </p>
                             ))}
                           </div>
                         )}
                         {c.notes && (
-                          <p className="text-xs text-textoSec">{c.notes}</p>
+                          <p className="text-xs text-textoSec font-mono border-t border-borde/50 pt-2">
+                            NOTA: {c.notes}
+                          </p>
                         )}
-                        <div className="flex gap-2 pt-2">
-                          <button
+                        <div className="flex gap-2 pt-3 border-t border-borde">
+                          <Button
+                            variant="ghost"
                             onClick={() => setEditando(c)}
-                            className="text-xs text-textoSec hover:text-acento"
+                            className="flex-1 h-8 rounded-none text-xs font-bold uppercase tracking-wider text-textoSec hover:text-acento hover:bg-superficie"
                           >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button
+                            <Pencil className="h-3 w-3 mr-2" /> Modificar
+                          </Button>
+                          <Button
+                            variant="ghost"
                             onClick={() => eliminar(c.id)}
-                            className="text-xs text-textoSec hover:text-error ml-auto"
+                            className="h-8 w-8 p-0 rounded-none text-textoSec hover:text-error hover:bg-error/10"
                           >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -272,7 +315,9 @@ export function CateringClient({
                   }
                 >
                   <option value="desayuno">Desayuno</option>
+                  <option value="refrigerio_1">Refrigerio AM</option>
                   <option value="almuerzo">Almuerzo</option>
+                  <option value="refrigerio_2">Refrigerio PM</option>
                   <option value="cena">Cena</option>
                 </Select>
               </div>
