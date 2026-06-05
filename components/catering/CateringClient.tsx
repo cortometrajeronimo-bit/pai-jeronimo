@@ -196,7 +196,7 @@ export function CateringClient({
               <h3 className="text-sm font-semibold text-acento mb-2">{fecha}</h3>
               <div className="grid gap-3 md:grid-cols-3">
                 {comidas.map((c) => {
-                  const meta = MEAL_META[c.meal_type];
+                  const meta = MEAL_META[c.meal_type] || { label: c.meal_type || "Desconocido", icon: UtensilsCrossed };
                   const Icon = meta.icon;
                   const conflictos = detectarConflictos(c.menu, conRestriccion);
                   return (
