@@ -74,7 +74,7 @@ const GRUPOS: Grupo[] = [
     hijos: [
       { href: "/equipos", label: "Equipos", icon: Camera },
       { href: "/transport", label: "Transporte", icon: Bus },
-      { href: "/catering", label: "Catering", icon: UtensilsCrossed },
+      { href: "/catering?refresh=1", label: "Catering", icon: UtensilsCrossed },
     ],
   },
   { key: "drive", label: "Drive", icon: FolderOpen, href: "/drive" },
