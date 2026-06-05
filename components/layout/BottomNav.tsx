@@ -24,7 +24,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-borde bg-superficie">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-borde bg-superficie pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-stretch h-16">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const activo = pathname?.startsWith(href);

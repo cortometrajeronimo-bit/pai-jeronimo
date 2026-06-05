@@ -20,7 +20,7 @@ export function DashboardShell({ children, userEmail }: Props) {
       <div className="flex-1 flex flex-col min-w-0">
         <Header userEmail={userEmail} onMenuClick={() => setSidebarOpen(true)} />
         <OfflineBanner />
-        <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto pb-20 md:pb-8">
+        <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8">
           {children}
         </main>
         <BottomNav />
